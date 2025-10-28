@@ -4,7 +4,8 @@
 This project is built with vue.js and tailwind CSS
 
 ## Project Structure
-```DBEA/
+```
+DBEA/
 │
 ├── node_modules/           # Installed npm packages (auto-created)
 ├── public/                 # Static public files (like index.html, favicon)
