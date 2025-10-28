@@ -4,7 +4,7 @@
 This project is built with vue.js and tailwind CSS
 
 ## Project Structure
-DBEA/
+```DBEA/
 │
 ├── node_modules/           # Installed npm packages (auto-created)
 ├── public/                 # Static public files (like index.html, favicon)
@@ -23,6 +23,7 @@ DBEA/
 ├── package-lock.json       # Exact dependency versions (auto-generated)
 ├── .gitignore              # Git ignore file
 └── README.md               # Project overview, setup instructions, and documentation
+```
 
 ## Getting Started
 
