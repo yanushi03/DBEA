@@ -28,7 +28,7 @@
           </div>
           <div class="text-right">
             <p class="text-navy-300 text-sm mb-1">Account Number</p>
-            <p class="text-lg font-mono">**** 4829</p>
+            <p class="text-lg font-mono">{{currentAccNumber}}</p>
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
