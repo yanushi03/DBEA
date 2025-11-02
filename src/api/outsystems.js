@@ -1,3 +1,4 @@
+import axios from 'axios'; // Add this at the top
 
 // get from OutSystem API with all the authentications
 const apiUrl = process.env.VUE_APP_API_URL;
@@ -8,7 +9,7 @@ const password = process.env.VUE_APP_API_PASSWORD;
 const basicAuth = btoa(`${username}:${password}`);
 
 
-export function fetchTransactionData(accountNum) {
+export async function fetchTransactionData(accountNum) {
   // Create query parameters using URLSearchParams
   const params = new URLSearchParams({
     PageNo: 1,
@@ -17,12 +18,14 @@ export function fetchTransactionData(accountNum) {
     EndDate: '2025-08-31'
   });
   const transactionURL = `${apiUrl}/Account/${accountNum}/transactions?${params.toString()}`;
-  return fetch(transactionURL, {
-    method: "GET",
-    headers: {
+
+  try{
+    const response = await axios.get(transactionURL,{ headers: {
       "Authorization": `Basic ${basicAuth}`,
       "Content-Type": "application/json"
-    }
-  })
-    .then(response => response.json());
+    }})
+    return response.data;
+  }catch(error){
+    throw error
+  }
 }
