@@ -11,7 +11,8 @@
               <button class="p-2 hover:bg-navy-700 rounded-lg transition-colors" @click="toggleBalance">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <template v-if="balanceVisible">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
                     </path>
@@ -35,7 +36,8 @@
             <div class="flex items-center gap-2 mb-2">
               <div class="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
                 <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12">
+                  </path>
                 </svg>
               </div>
               <span class="text-navy-300 text-sm">Income</span>
@@ -47,7 +49,8 @@
             <div class="flex items-center gap-2 mb-2">
               <div class="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
                 <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6">
+                  </path>
                 </svg>
               </div>
               <span class="text-navy-300 text-sm">Expenses</span>
@@ -81,15 +84,15 @@
                   </svg>
                 </div>
                 <div>
-                  <p class="font-semibold text-navy-900">{{ tx.title }}</p>
-                  <p class="text-sm text-navy-500">{{ tx.date }}</p>
+                  <p class="font-semibold text-navy-900">{{ tx.narrative }}</p>
+                  <p class="text-sm text-navy-500">{{ formatDate(tx.transactionDate) }}</p>
                 </div>
               </div>
               <div class="text-right">
-                <p :class="['font-bold', tx.amountColor]">{{ tx.amount }}</p>
+                <p :class="['font-bold', tx.amountColor]">{{ tx.transactionAmount }}</p>
                 <span class="inline-block px-2 py-1"
-                      :class="[tx.statusBg, tx.statusColor, 'text-xs font-medium rounded-full mt-1']">
-                      {{ tx.status }}
+                  :class="[tx.statusBg, tx.statusColor, 'text-xs font-medium rounded-full mt-1']">
+                  {{ tx.status }}
                 </span>
               </div>
             </div>
@@ -101,35 +104,71 @@
 </template>
 
 <script>
+import { fetchTransactionData } from '@/api/outsystems';
+import { formatDate } from '../main'
 export default {
   data() {
     return {
+      // hard coded for now pls change
+      currentAccNumber: "0000005643",
       balance: '$24,582.50',
       hiddenBalance: '••••••••',
       balanceVisible: true,
       income: '$8,420.00',
       expenses: '$3,280.00',
-      transactions: [
-        {
-          title: 'Salary Deposit',
-          date: 'Jan 15, 2025 • 09:30 AM',
-          amount: '+$5,200.00',
-          amountColor: 'text-green-600',
-          status: 'Completed',
-          statusColor: 'text-green-700',
-          statusBg: 'bg-green-100',
-          iconBg: 'bg-green-100',
-          iconColor: 'text-green-600',
-          svg: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>`
-        },
-        // ...put your other transaction objects here...
-      ]
+      transactions: [ ]
     };
   },
+  // Used to fetch data from api
+  mounted() {
+    this.fetchTransactionData(this.currentAccNumber)
+      .then(data => {
+        console.log(data); // See your API response structure
+        this.transactions = data.map(tx => enrichTransaction(tx, this.currentAccNumber));
+      })
+      .catch(error => {
+        console.error(error);
+      });
+  },
   methods: {
+    formatDate,
     toggleBalance() {
       this.balanceVisible = !this.balanceVisible;
+    },
+    fetchTransactionData(currentAccNumber) {
+      // Your fetch function, e.g.
+      return fetchTransactionData(currentAccNumber); // Promise
     }
   }
 };
+
+function enrichTransaction(tx, currentAccNumber) {
+  const isOutflow = tx.accountTo !== currentAccNumber;
+
+  // Ensure amount is a string and strip any existing sign
+  let amountValue = tx.transactionAmount?.toString().replace(/^[-+]/, '') || '0';
+
+  // Add + for inflows, - for outflows
+  let transactionAmount = (isOutflow ? '-' : '+') + "$" + amountValue;
+
+  const svg = isOutflow
+    // Arrow up (outflow)
+    ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 13l5-5m0 0l5 5m-5-5v12"></path>`
+    // Arrow down (inflow)
+    : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 11l-5 5m0 0l-5-5m5 5V4"></path>`;
+
+  return {
+    ...tx,
+    transactionAmount,
+    amountColor: isOutflow ? 'text-red-600' : 'text-green-600',
+    statusColor: tx.status === 'Completed' ? (isOutflow ? 'text-red-700' : 'text-green-700') : 'text-yellow-700',
+    statusBg: tx.status === 'Completed' ? (isOutflow ? 'bg-red-100' : 'bg-green-100') : 'bg-yellow-100',
+    iconBg: isOutflow ? 'bg-red-100' : 'bg-green-100',
+    iconColor: isOutflow ? 'text-red-600' : 'text-green-600',
+    svg
+  };
+}
+
+
+
 </script>
