@@ -9,8 +9,9 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "vue": "^2.7.0",
     "axios": "^1.2.0",
+    "dotenv": "^17.2.3",
+    "vue": "^2.7.0",
     "vue-router": "^3.6.5"
   },
   "devDependencies": {
