@@ -6,7 +6,7 @@ const username = process.env.VUE_APP_API_USERNAME;
 const password = process.env.VUE_APP_API_PASSWORD;
 
 //get customers service API url
-const customerAPIUrl = process.env.CUSTOMER_SERVICE_API_URL;
+const customerAPIUrl = process.env.VUE_APP_CUSTOMER_SERVICE_API_URL;
 
 // Basic Auth
 
@@ -14,7 +14,6 @@ const basicAuth = btoa(`${username}:${password}`);
 
 
 export async function fetchTransactionData(accountNum) {
-    console.log(apiUrl);
   // Create query parameters using URLSearchParams
   const params = new URLSearchParams({
     PageNo: 1,
@@ -37,15 +36,24 @@ export async function fetchTransactionData(accountNum) {
 
 export async function loginUser(accountId, password) {
   try {
-    const response = await axios.post(`${customerAPIUrl}/login`, {
-      params: {
-        accountId,
+    const response = await axios.post(
+      `${customerAPIUrl}/login`,
+      {
+        accountId, // send directly
         password,
       },
-    });
-    return response.data; // Return only the API data
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
   } catch (error) {
-    console.error('Login failed:', error);
+    console.error(
+      "Login failed:",
+      error.response ? error.response.data : error
+    );
     throw error.response ? error.response.data : error;
   }
 }
