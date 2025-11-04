@@ -94,7 +94,25 @@
               View All
             </button>
           </div>
+
+          <!-- Date Range Fields -->
+          <div class="mt-4 flex gap-4 items-center">
+            <label class="text-sm font-medium text-navy-600">
+              Start Date:
+              <input type="date" v-model="startDate" class="ml-2 border border-navy-200 rounded px-3 py-1" />
+            </label>
+            <label class="text-sm font-medium text-navy-600">
+              End Date:
+              <input type="date" v-model="endDate" class="ml-2 border border-navy-200 rounded px-3 py-1" />
+            </label>
+            <button @click="fetchTransactionData(currentAccNumber, startDate, endDate)"
+              class="ml-4 bg-blue-500 text-white px-3 py-1 rounded">
+              Filter
+            </button>
+          </div>
+          <!-- End date range fields -->
         </div>
+
         <div class="divide-y divide-navy-100">
           <div v-for="(tx, idx) in transactions" :key="idx" class="p-6 hover:bg-navy-50 transition-colors">
             <div class="flex items-center justify-between">
@@ -190,36 +208,46 @@
 </template>
 
 <script>
-import { fetchTransactionData } from "@/api/outsystems";
+import { fetchTransactionData, getAccountDetails as fetchAccountDetails, fetchMonthlyTransactionData } from "@/api/outsystems";
 import { formatDate } from "../main";
 import { getAccountId } from "../router/auth";
 export default {
   data() {
+    const now = new Date();
+    const lastMonth = new Date(now);
+    lastMonth.setMonth(now.getMonth() - 1);
     return {
       // hard coded for now pls change
       currentAccNumber: getAccountId(),
-      balance: "$24,582.50",
-      hiddenBalance: "••••••••",
-      balanceVisible: true,
-      income: "$8,420.00",
-      expenses: "$3,280.00",
+      balance: "$0",
+      hiddenBalance: "$••••••••",
+      balanceVisible: false,
+      income: "$0",
+      expenses: "$0",
       transactions: [],
       currentTab: "transactions",
       totalSpending: "$0.00",
       spendingSummary: [],
       currentMonth: null,
       months: [],
+      startDate: lastMonth.toLocaleDateString('en-CA'),
+      endDate: now.toLocaleDateString('en-CA'),
     };
   },
   // Used to fetch data from api
   mounted() {
-    this.fetchTransactionData(this.currentAccNumber)
+    this.getAccountDetails(this.currentAccNumber)
       .then((data) => {
-        console.log(data); // See your API response structure
-        this.transactions = data.map((tx) =>
-          enrichTransaction(tx, this.currentAccNumber)
-        );
+        console.log(data);
+        this.balance = "$" + (data.Balance).toFixed(2);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
 
+    this.fetchTransactionData(this.currentAccNumber, this.startDate, this.endDate)
+      .then((data) => {
+        // console.log(data); // See your API response structure
         // Extract available months
         const monthSet = new Set(
           this.transactions.map((tx) => tx.transactionDate.slice(0, 7)) // "YYYY-MM"
@@ -228,6 +256,7 @@ export default {
         this.currentMonth = this.months[0] || null;
 
         this.computeSpendingSummary();
+
       })
       .catch((error) => {
         console.error(error);
@@ -247,9 +276,27 @@ export default {
     toggleBalance() {
       this.balanceVisible = !this.balanceVisible;
     },
-    fetchTransactionData(currentAccNumber) {
-      // Your fetch function, e.g.
-      return fetchTransactionData(currentAccNumber); // Promise
+
+    fetchTransactionData(currentAccNumber, startDate, endDate) {
+      return fetchTransactionData(currentAccNumber, startDate, endDate)
+        .then((data) => {
+          // 2. Set transactions
+          this.transactions = data.map(tx => enrichTransaction(tx, currentAccNumber));
+
+          // Calculate income (inflow)
+          this.income = "$" + this.transactions.reduce((sum, tx) =>
+            sum + calculateIncome(tx, this.currentAccNumber), 0
+          );
+
+          // Calculate expenses (outflow)
+          this.expenses = "$" + this.transactions.reduce((sum, tx) =>
+            sum + calculateExpenses(tx, this.currentAccNumber), 0
+          );
+        });
+    },
+
+    getAccountDetails(currentAccNumber) {
+      return fetchAccountDetails(currentAccNumber);
     },
 
     formatMonthLabel(monthStr) {
@@ -312,7 +359,6 @@ export default {
     }
   },
 };
-
 function enrichTransaction(tx, currentAccNumber) {
   const isOutflow = tx.accountTo !== currentAccNumber;
 
@@ -349,5 +395,29 @@ function enrichTransaction(tx, currentAccNumber) {
     iconColor: isOutflow ? "text-red-600" : "text-green-600",
     svg,
   };
+}
+
+function calculateExpenses(tx, currentAccNumber) {
+  // Transaction is an inflow if accountTo matches the current account number
+  if (tx.accountTo !== currentAccNumber) {
+    let incomeAmt = tx.transactionAmount?.toString().replace(/[^0-9.]/g, "")
+    const amountValue = parseFloat(incomeAmt);
+    // Return the amount if it's a valid number, otherwise 0
+    return !isNaN(amountValue) ? amountValue : 0;
+  }
+  // Not an inflowD
+  return 0;
+}
+
+function calculateIncome(tx, currentAccNumber) {
+  // Transaction is an inflow if accountTo matches the current account number
+  if (tx.accountTo == currentAccNumber) {
+    let incomeAmt = tx.transactionAmount?.toString().replace(/[^0-9.]/g, "")
+    const amountValue = parseFloat(incomeAmt);
+    // Return the amount if it's a valid number, otherwise 0
+    return !isNaN(amountValue) ? amountValue : 0;
+  }
+  // Not an inflowD
+  return 0;
 }
 </script>

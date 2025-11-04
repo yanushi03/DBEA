@@ -13,23 +13,48 @@ const customerAPIUrl = process.env.VUE_APP_CUSTOMER_SERVICE_API_URL;
 const basicAuth = btoa(`${username}:${password}`);
 
 
-export async function fetchTransactionData(accountNum) {
+export async function fetchTransactionData(accountNum, startDate, endDate) {
   // Create query parameters using URLSearchParams
   const params = new URLSearchParams({
     PageNo: 1,
     PageSize: 3,
-    StartDate: '2025-01-01',
-    EndDate: '2025-12-31'
+    StartDate: startDate,
+    EndDate: endDate
   });
   const transactionURL = `${apiUrl}/Account/${accountNum}/transactions?${params.toString()}`;
 
-  try{
-    const response = await axios.get(transactionURL,{ headers: {
-      "Authorization": `Basic ${basicAuth}`,
-      "Content-Type": "application/json"
-    }})
+  try {
+    const response = await axios.get(transactionURL, {
+      headers: {
+        "Authorization": `Basic ${basicAuth}`,
+        "Content-Type": "application/json"
+      }
+    })
     return response.data;
-  }catch(error){
+  } catch (error) {
+    throw error
+  }
+}
+
+export async function fetchMonthlyTransactionData(accountNum, startDate, endDate) {
+  // Create query parameters using URLSearchParams
+  const params = new URLSearchParams({
+    PageNo: 1,
+    PageSize: 3,
+    StartDate: startDate,
+    EndDate: endDate
+  });
+  const transactionURL = `${apiUrl}/Account/${accountNum}/transactions?${params.toString()}`;
+
+  try {
+    const response = await axios.get(transactionURL, {
+      headers: {
+        "Authorization": `Basic ${basicAuth}`,
+        "Content-Type": "application/json"
+      }
+    })
+    return response.data;
+  } catch (error) {
     throw error
   }
 }
@@ -58,4 +83,18 @@ export async function loginUser(accountId, password) {
   }
 }
 
+export async function getAccountDetails(accountId) {
+  try {
+    const response = await axios.get(`${customerAPIUrl}/customers/${accountId}`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    return response.data;
+
+  } catch (err) {
+    console.error("Unable to fetch details because: " + err);
+    throw err;
+  }
+}
 
