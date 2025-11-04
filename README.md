@@ -16,7 +16,7 @@ DBEA/
 │   ├── components/         # Reusable Vue components (.vue files—buttons, cards, etc.)
 │   ├── pages/              # Contains the pages
 │   ├── router/             # Vue Router configuration for page navigation
-│       └── index.js        # Routes setup
+│       └── index.js        # Routes setup - Add routes here
 │   ├── App.vue             # Root Vue component (Header, Footer etc)
 │   ├── main.js             # App entry point (initializes Vue)
 │
