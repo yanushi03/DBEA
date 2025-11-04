@@ -15,32 +15,20 @@
       <form @submit.prevent="handleLogin" class="space-y-4">
         <div>
           <label class="block text-navy-900 font-medium mb-1" for="email">Account ID</label>
-          <input
-            v-model="accountId"
-            id="accountId"
-            type="text"
-            placeholder="0000001234"
+          <input v-model="accountId" id="accountId" type="text" placeholder="0000001234"
             class="w-full px-4 py-2 border border-navy-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-500"
-            required
-          />
+            required />
         </div>
 
         <div>
           <label class="block text-navy-900 font-medium mb-1" for="password">Password</label>
-          <input
-            v-model="password"
-            id="password"
-            type="password"
-            placeholder="********"
+          <input v-model="password" id="password" type="password" placeholder="********"
             class="w-full px-4 py-2 border border-navy-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-500"
-            required
-          />
+            required />
         </div>
 
-        <button
-          type="submit"
-          class="w-full bg-navy-600 hover:bg-navy-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-        >
+        <button type="submit"
+          class="w-full bg-navy-600 hover:bg-navy-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
           Login
         </button>
       </form>
@@ -57,6 +45,7 @@
 
 <script>
 import { loginUser } from "../api/outsystems.js"
+import { setLoggedIn } from "../router/auth.js";
 
 export default {
   name: "Login",
@@ -69,13 +58,14 @@ export default {
   },
   methods: {
     async handleLogin() {
-     try{
-      const data = await loginUser(this.accountId, this.password);
-      console.log("Login success:", data)
-      this.$router.push("/dashboard")
-     }catch(err){
-      this.error = "Invalid account ID or password.";
-     }
+      try {
+        const data = await loginUser(this.accountId, this.password);
+        const initials = data.CustomerDetails.FullName.split(" ").map(namePart => namePart[0].toUpperCase()).join("");
+        setLoggedIn(initials, data.CustomerDetails.AccountId); // set logged in to true
+        this.$router.push("/dashboard")
+      } catch (err) {
+        this.error = "Invalid account ID or password.";
+      }
     },
   },
 };
@@ -87,16 +77,19 @@ export default {
   margin: 50px auto;
   text-align: center;
 }
+
 input {
   display: block;
   width: 100%;
   margin: 10px 0;
   padding: 8px;
 }
+
 button {
   width: 100%;
   padding: 10px;
 }
+
 .error {
   color: red;
   margin-top: 10px;
