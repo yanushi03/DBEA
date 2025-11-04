@@ -1,12 +1,13 @@
 <template>
   <div class="bg-gradient-to-br from-navy-50 to-navy-100 min-h-screen">
     <!-- Header -->
-    <header class="bg-white border-b border-navy-200 sticky top-0 z-50 shadow-sm">
+    <header v-if="!isLoginPage" class="bg-white border-b border-navy-200 sticky top-0 z-50 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center gap-8">
             <div class="flex items-center gap-2">
-              <div class="w-8 h-8 bg-gradient-to-br from-navy-600 to-navy-800 rounded-lg flex items-center justify-center">
+              <div
+                class="w-8 h-8 bg-gradient-to-br from-navy-600 to-navy-800 rounded-lg flex items-center justify-center">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
@@ -16,8 +17,14 @@
               <span class="text-xl font-bold text-navy-900">MyBank</span>
             </div>
             <nav class="hidden md:flex gap-6">
-              <router-link to="/" class="text-navy-900 font-medium border-b-2 border-navy-600 pb-1">Dashboard</router-link>
-              <router-link to="/shared-wallet" class="text-navy-600 hover:text-navy-900 transition-colors">Shared Wallet</router-link>
+              <router-link to="/dashboard" class="text-navy-600 hover:text-navy-900 transition-colors pb-1"
+                exact-active-class="font-bold border-b-2 border-navy-600 text-navy-900">
+                Dashboard
+              </router-link>
+              <router-link to="/shared-wallet" class="text-navy-600 hover:text-navy-900 transition-colors pb-1"
+                active-class="font-bold border-b-2 border-navy-600 text-navy-900">
+                Shared Wallet
+              </router-link>
             </nav>
           </div>
           <div class="flex items-center gap-4">
@@ -28,8 +35,22 @@
                 </path>
               </svg>
             </button>
-            <div class="w-8 h-8 bg-navy-600 rounded-full flex items-center justify-center">
-              <span class="text-white text-sm font-medium">JD</span>
+            <div class="relative group">
+              <!-- Profile Circle -->
+              <div class="w-8 h-8 bg-navy-600 rounded-full flex items-center justify-center cursor-pointer">
+                <span class="text-white text-sm font-medium">JD</span>
+              </div>
+
+              <!-- Dropdown Menu -->
+              <div
+                class="absolute right-0 mt-2 w-40 bg-white border border-navy-200 rounded-lg shadow-lg opacity-0 invisible group-hover:visible group-hover:opacity-100 transition-all duration-200">
+                <router-link to="/profile" class="block px-4 py-2 text-navy-900 hover:bg-navy-50 transition-colors">
+                  Profile
+                </router-link>
+                <router-link to="/logout" class="block px-4 py-2 text-navy-900 hover:bg-navy-50 transition-colors">
+                  Logout
+                </router-link>
+              </div>
             </div>
           </div>
         </div>
@@ -42,6 +63,11 @@
 
 <script>
 export default {
-  name: 'App'
-}
+  name: "App",
+  computed: {
+    isLoginPage() {
+      return this.$route.name === "Login";
+    },
+  },
+};
 </script>
