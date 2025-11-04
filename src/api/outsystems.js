@@ -18,8 +18,8 @@ export async function fetchTransactionData(accountNum) {
   const params = new URLSearchParams({
     PageNo: 1,
     PageSize: 3,
-    StartDate: '2023-02-05',
-    EndDate: '2025-08-31'
+    StartDate: '2025-01-01',
+    EndDate: '2025-12-31'
   });
   const transactionURL = `${apiUrl}/Account/${accountNum}/transactions?${params.toString()}`;
 
