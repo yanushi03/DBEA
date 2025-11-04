@@ -105,12 +105,13 @@
 
 <script>
 import { fetchTransactionData } from '@/api/outsystems';
-import { formatDate } from '../main'
+import { formatDate } from '../main';
+import { getAccountId } from '../router/auth';
 export default {
   data() {
     return {
       // hard coded for now pls change
-      currentAccNumber: "0000005643",
+      currentAccNumber: getAccountId(),
       balance: '$24,582.50',
       hiddenBalance: '••••••••',
       balanceVisible: true,
