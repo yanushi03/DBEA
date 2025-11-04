@@ -38,7 +38,7 @@
             <div class="relative group">
               <!-- Profile Circle -->
               <div class="w-8 h-8 bg-navy-600 rounded-full flex items-center justify-center cursor-pointer">
-                <span class="text-white text-sm font-medium">JD</span>
+                <span class="text-white text-sm font-medium">{{ userInitials }}</span>
               </div>
 
               <!-- Dropdown Menu -->
@@ -47,9 +47,10 @@
                 <router-link to="/profile" class="block px-4 py-2 text-navy-900 hover:bg-navy-50 transition-colors">
                   Profile
                 </router-link>
-                <router-link to="/logout" class="block px-4 py-2 text-navy-900 hover:bg-navy-50 transition-colors">
+                <a @click.prevent="handleLogout" href="#"
+                  class="block px-4 py-2 text-navy-900 hover:bg-navy-50 transition-colors">
                   Logout
-                </router-link>
+                </a>
               </div>
             </div>
           </div>
@@ -62,12 +63,23 @@
 </template>
 
 <script>
+import { getUserInitials, logout } from './router/auth';
+
 export default {
   name: "App",
   computed: {
     isLoginPage() {
       return this.$route.name === "Login";
     },
+    userInitials(){
+      return getUserInitials();
+    }
   },
+  methods: {
+    handleLogout(){
+      logout();               // clears sessionStorage
+      this.$router.push("/"); // redirect to login
+    }
+  }
 };
 </script>
