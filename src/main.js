@@ -1,6 +1,7 @@
 import Vue from 'vue';
 import App from './App.vue';
 import router from './router/index.js';
+import '@fortawesome/fontawesome-free/css/all.css';
 
 
 export function formatDate(dateTime) {
