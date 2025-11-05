@@ -17,8 +17,10 @@ DBEA/
 │   ├── pages/              # Contains the pages
 │   ├── router/             # Vue Router configuration for page navigation
 │       └── index.js        # Routes setup - Add routes here
+│   ├── utils/              # Folder for common utility function files
+│       └── date.js         # Date-related helper functions for formatting and manipulating dates
 │   ├── App.vue             # Root Vue component (Header, Footer etc)
-│   ├── main.js             # App entry point (initializes Vue)
+│   ├── main.js             # App entry point (initializes Vue) where Vue application "starts"
 │
 ├── package.json            # Project metadata & dependencies
 ├── package-lock.json       # Exact dependency versions (auto-generated)
