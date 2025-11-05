@@ -17,7 +17,7 @@ export async function fetchTransactionData(accountNum, startDate, endDate) {
   // Create query parameters using URLSearchParams
   const params = new URLSearchParams({
     PageNo: 1,
-    PageSize: 20,
+    PageSize: 50,
     StartDate: startDate,
     EndDate: endDate
   });

@@ -114,36 +114,67 @@
         </div>
 
         <div class="divide-y divide-navy-100">
-          <div v-for="(tx, idx) in transactions" :key="idx" class="p-6 hover:bg-navy-50 transition-colors">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-4">
-                <div :class="tx.iconBg +
-                  ' w-12 h-12 rounded-xl flex items-center justify-center'
-                  ">
-                  <svg class="w-6 h-6" :class="tx.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <g v-html="tx.svg"></g>
-                  </svg>
-                </div>
-                <div>
-                  <p class="font-semibold text-navy-900">{{ tx.narrative }}</p>
-                  <p class="text-sm text-navy-500">
-                    {{ formatDate(tx.transactionDate) }}
-                  </p>
+          <template>
+            <div>
+              <div v-for="(tx, idx) in paginatedTransactions" :key="idx" class="p-6 hover:bg-navy-50 transition-colors">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-4">
+                    <div :class="tx.iconBg + ' w-12 h-12 rounded-xl flex items-center justify-center'">
+                      <svg class="w-6 h-6" :class="tx.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <g v-html="tx.svg"></g>
+                      </svg>
+                    </div>
+                    <div>
+                      <p class="font-semibold text-navy-900">{{ tx.narrative }}</p>
+                      <p class="text-sm text-navy-500">
+                        {{ formatDate(tx.transactionDate) }}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <p :class="['font-bold', tx.amountColor]">
+                      {{ tx.transactionAmount }}
+                    </p>
+                    <!-- <span class="inline-block px-2 py-1" :class="[
+                      tx.statusBg,
+                      tx.statusColor,
+                      'text-xs font-medium rounded-full mt-1',
+                    ]">
+                      {{ tx.status }}
+                    </span> -->
+                    <button
+                      class="px-6 py-3 rounded-lg font-bold text-white shadow transition transform hover:scale-105 focus:outline-none"
+                      style="background: linear-gradient(90deg, #ff5e62 50%, #ffc371 50%); border: none;">
+                      Split Expenses
+                    </button>
+
+                  </div>
                 </div>
               </div>
-              <div class="text-right">
-                <p :class="['font-bold', tx.amountColor]">
-                  {{ tx.transactionAmount }}
-                </p>
-                <span class="inline-block px-2 py-1" :class="[
-                  tx.statusBg,
-                  tx.statusColor,
-                  'text-xs font-medium rounded-full mt-1',
-                ]">
-                  {{ tx.status }}
+
+              <!-- Pagination controls -->
+              <div class="flex items-center justify-center gap-6 mt-4 mb-5">
+                <button @click="prevPage" :disabled="currentPage === 1"
+                  class="px-4 py-1 rounded bg-gray-300 disabled:opacity-50">
+                  Previous
+                </button>
+
+                <span class="text-sm font-medium">
+                  Page {{ currentPage }} of {{ totalPages }}
                 </span>
+
+                <button @click="nextPage" :disabled="currentPage === totalPages"
+                  class="px-4 py-1 rounded bg-gray-300 disabled:opacity-50">
+                  Next
+                </button>
               </div>
+
             </div>
+          </template>
+
+          <!-- Show "No transactions" if empty -->
+          <div v-if="transactions.length === 0" class="p-6 text-navy-500 font-medium">
+            No transactions for this period
           </div>
         </div>
       </div>
@@ -236,7 +267,11 @@ export default {
       months: [],
       startDate: lastMonth.toLocaleDateString('en-CA'),
       endDate: now.toLocaleDateString('en-CA'),
+      currentPage: 1,
+      itemsPerPage: 4, // adjust per page count here
+      // transactions: [], // your fetched transactions
     };
+
   },
   // Used to fetch data from api
   mounted() {
@@ -283,7 +318,27 @@ export default {
     this.fetchAllTransactionsForInsights();
     this.fetchMonthlyTransaction();
   },
+  computed: {
+    totalPages() {
+      return Math.ceil(this.transactions.length / this.itemsPerPage);
+    },
+    paginatedTransactions() {
+      const start = (this.currentPage - 1) * this.itemsPerPage;
+      const end = start + this.itemsPerPage;
+      return this.transactions.slice(start, end);
+    },
+  },
   methods: {
+    nextPage() {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++;
+      }
+    },
+    prevPage() {
+      if (this.currentPage > 1) {
+        this.currentPage--;
+      }
+    },
 
     formatDate,
     toggleBalance() {
@@ -291,11 +346,11 @@ export default {
     },
 
     selectMonth(month) {
-  this.currentMonth = month;
-  const summary = this.getMonthSummary(month);
-  this.spendingSummary = summary.categories; // could be empty array if no data
-  this.totalSpending = summary.totalSpending || "$0.00";
-},
+      this.currentMonth = month;
+      const summary = this.getMonthSummary(month);
+      this.spendingSummary = summary.categories; // could be empty array if no data
+      this.totalSpending = summary.totalSpending || "$0.00";
+    },
 
     getMonthSummary(month) {
       if (!this.monthlySummaries || this.monthlySummaries.length === 0) return { categories: [], totalSpending: "$0.00" };
