@@ -278,15 +278,6 @@ export default {
     // Fetch all transactions for insights (ignores date filter)
     this.fetchAllTransactionsForInsights();
   },
-  watch: {
-    transactions: {
-      handler() {
-        this.computeSpendingSummary();
-      },
-      deep: true,
-      immediate: true,
-    },
-  },
   methods: {
 
     formatDate,
@@ -450,7 +441,10 @@ export default {
       this.totalSpending = currentSummary?.totalSpending || "$0.00";
 
       // Update months array for tabs
-      this.months = summaries.map(s => s.month);
+      // this.months = summaries.map(s => s.month);
+      if (!this.months || this.months.length === 0) {
+        this.months = summaries.map(s => s.month);
+      }
     }
   },
 };
