@@ -300,7 +300,7 @@ export default {
       this.spendingSummary = summary.categories;
       this.totalSpending = summary.totalSpending;
     },
-    
+
     getMonthSummary(month) {
       if (!this.monthlySummaries || this.monthlySummaries.length === 0) return { categories: [], totalSpending: "$0.00" };
       const summary = this.monthlySummaries.find(s => s.month === month);
