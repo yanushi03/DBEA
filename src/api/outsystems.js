@@ -36,29 +36,6 @@ export async function fetchTransactionData(accountNum, startDate, endDate) {
   }
 }
 
-export async function fetchMonthlyTransactionData(accountNum, startDate, endDate) {
-  // Create query parameters using URLSearchParams
-  const params = new URLSearchParams({
-    PageNo: 1,
-    PageSize: 3,
-    StartDate: startDate,
-    EndDate: endDate
-  });
-  const transactionURL = `${apiUrl}/Account/${accountNum}/transactions?${params.toString()}`;
-
-  try {
-    const response = await axios.get(transactionURL, {
-      headers: {
-        "Authorization": `Basic ${basicAuth}`,
-        "Content-Type": "application/json"
-      }
-    })
-    return response.data;
-  } catch (error) {
-    throw error
-  }
-}
-
 export async function loginUser(accountId, password) {
   try {
     const response = await axios.post(
