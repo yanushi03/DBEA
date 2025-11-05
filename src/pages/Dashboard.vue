@@ -219,11 +219,11 @@ export default {
     return {
       // hard coded for now pls change
       currentAccNumber: getAccountId(),
-      balance: "$0",
+      balance: "$0.00",
       hiddenBalance: "$••••••••",
       balanceVisible: false,
-      income: "$0",
-      expenses: "$0",
+      income: "$0.00",
+      expenses: "$0.00",
       transactions: [],
       currentTab: "transactions",
       totalSpending: "$0.00",
@@ -277,6 +277,7 @@ export default {
 
     // Fetch all transactions for insights (ignores date filter)
     this.fetchAllTransactionsForInsights();
+    this.fetchMonthlyTransaction();
   },
   watch: {
     transactions: {
@@ -300,7 +301,7 @@ export default {
       this.spendingSummary = summary.categories;
       this.totalSpending = summary.totalSpending;
     },
-    
+
     getMonthSummary(month) {
       if (!this.monthlySummaries || this.monthlySummaries.length === 0) return { categories: [], totalSpending: "$0.00" };
       const summary = this.monthlySummaries.find(s => s.month === month);
@@ -314,15 +315,7 @@ export default {
           // 2. Set transactions
           this.transactions = data.map(tx => enrichTransaction(tx, currentAccNumber));
 
-          // Calculate income (inflow)
-          this.income = "$" + this.transactions.reduce((sum, tx) =>
-            sum + calculateIncome(tx, this.currentAccNumber), 0
-          );
 
-          // Calculate expenses (outflow)
-          this.expenses = "$" + this.transactions.reduce((sum, tx) =>
-            sum + calculateExpenses(tx, this.currentAccNumber), 0
-          );
         });
     },
 
@@ -359,6 +352,32 @@ export default {
           this.computeSpendingSummary(this.allTransactions);
         })
         .catch(console.error);
+    },
+
+    fetchMonthlyTransaction() {
+      const nowDate = new Date(); // Date object for current date
+      const now = nowDate.toLocaleDateString('en-CA'); // formatted string
+
+      const lastMonthDate = new Date(nowDate); // copy Date object
+      lastMonthDate.setMonth(nowDate.getMonth() - 1); // set to one month earlier
+      const lastMonth = lastMonthDate.toLocaleDateString('en-CA');
+
+      return fetchTransactionData(this.currentAccNumber, lastMonth, now)
+        .then((data) => {
+          // Enrich each transaction with account number context
+          this.transactions = data.map(tx => enrichTransaction(tx, this.currentAccNumber));
+
+          // Calculate income (inflow)
+          this.income = "$" + this.transactions
+            .reduce((sum, tx) => sum + calculateIncome(tx, this.currentAccNumber), 0)
+            .toFixed(2);
+
+          // Calculate expenses (outflow)
+          this.expenses = "$" + this.transactions
+            .reduce((sum, tx) => sum + calculateExpenses(tx, this.currentAccNumber), 0)
+            .toFixed(2);
+        });
+
     },
 
 
