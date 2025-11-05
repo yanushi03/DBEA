@@ -62,150 +62,137 @@
           </div>
         </div>
       </div>
+  <!-- Quick Actions -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <!-- ...your quick actions code here... -->
+  </div>
 
-      <!-- Quick Actions -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <!-- ...shortened for brevity: copy your quick actions code from above here... -->
-      </div>
-      <!-- Tabs -->
-      <div class="flex border-b border-navy-100 mb-4">
-        <button @click="currentTab = 'transactions'" :class="currentTab === 'transactions'
-          ? 'border-b-2 border-blue-500 text-navy-900'
-          : 'text-navy-500'
-          " class="px-4 py-2 font-medium">
-          Transactions
+  <!-- Tabs -->
+  <div class="flex border-b border-navy-100 mb-4">
+    <button @click="currentTab = 'transactions'" :class="currentTab === 'transactions'
+      ? 'border-b-2 border-blue-500 text-navy-900'
+      : 'text-navy-500'"
+      class="px-4 py-2 font-medium">
+      Transactions
+    </button>
+    <button @click="currentTab = 'insights'" :class="currentTab === 'insights'
+      ? 'border-b-2 border-blue-500 text-navy-900'
+      : 'text-navy-500'"
+      class="px-4 py-2 font-medium">
+      Insights
+    </button>
+  </div>
+
+  <!-- Transaction History -->
+  <div v-if="currentTab === 'transactions'" class="bg-white rounded-2xl shadow-sm border border-navy-100">
+    <div class="p-6 border-b border-navy-100">
+      <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-navy-900">
+          Transaction History
+        </h2>
+        <button class="text-navy-600 hover:text-navy-900 text-sm font-medium">
+          View All
         </button>
-        <button @click="currentTab = 'insights'" :class="currentTab === 'insights'
-          ? 'border-b-2 border-blue-500 text-navy-900'
-          : 'text-navy-500'
-          " class="px-4 py-2 font-medium">
-          Insights
-        </button>
       </div>
 
-      <!-- Transaction History -->
-      <div v-if="currentTab === 'transactions'" class="bg-white rounded-2xl shadow-sm border border-navy-100">
-        <div class="p-6 border-b border-navy-100">
-          <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-navy-900">
-              Transaction History
-            </h2>
-            <button class="text-navy-600 hover:text-navy-900 text-sm font-medium">
-              View All
-            </button>
-          </div>
+      <!-- Date Range Fields -->
+      <div class="mt-4 flex gap-4 items-center">
+        <label class="text-sm font-medium text-navy-600">
+          Start Date:
+          <input type="date" v-model="startDate" class="ml-2 border border-navy-200 rounded px-3 py-1" />
+        </label>
+        <label class="text-sm font-medium text-navy-600">
+          End Date:
+          <input type="date" v-model="endDate" class="ml-2 border border-navy-200 rounded px-3 py-1" />
+        </label>
+        <button @click="fetchTransactionData(currentAccNumber, startDate, endDate)"
+          class="ml-4 bg-blue-500 text-white px-3 py-1 rounded">
+          Filter
+        </button>
+      </div>
+    </div>
 
-          <!-- Date Range Fields -->
-          <div class="mt-4 flex gap-4 items-center">
-            <label class="text-sm font-medium text-navy-600">
-              Start Date:
-              <input type="date" v-model="startDate" class="ml-2 border border-navy-200 rounded px-3 py-1" />
-            </label>
-            <label class="text-sm font-medium text-navy-600">
-              End Date:
-              <input type="date" v-model="endDate" class="ml-2 border border-navy-200 rounded px-3 py-1" />
-            </label>
-            <button @click="fetchTransactionData(currentAccNumber, startDate, endDate)"
-              class="ml-4 bg-blue-500 text-white px-3 py-1 rounded">
-              Filter
-            </button>
-          </div>
-          <!-- End date range fields -->
-        </div>
-
-        <div class="divide-y divide-navy-100">
-          <div v-for="(tx, idx) in transactions" :key="idx" class="p-6 hover:bg-navy-50 transition-colors">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-4">
-                <div :class="tx.iconBg +
-                  ' w-12 h-12 rounded-xl flex items-center justify-center'
-                  ">
-                  <svg class="w-6 h-6" :class="tx.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <g v-html="tx.svg"></g>
-                  </svg>
-                </div>
-                <div>
-                  <p class="font-semibold text-navy-900">{{ tx.narrative }}</p>
-                  <p class="text-sm text-navy-500">
-                    {{ formatDate(tx.transactionDate) }}
-                  </p>
-                </div>
-              </div>
-              <div class="text-right">
-                <p :class="['font-bold', tx.amountColor]">
-                  {{ tx.transactionAmount }}
-                </p>
-                <span class="inline-block px-2 py-1" :class="[
-                  tx.statusBg,
-                  tx.statusColor,
-                  'text-xs font-medium rounded-full mt-1',
-                ]">
-                  {{ tx.status }}
-                </span>
-              </div>
+    <div class="divide-y divide-navy-100">
+      <div v-for="(tx, idx) in transactions" :key="idx" class="p-6 hover:bg-navy-50 transition-colors">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div :class="tx.iconBg + ' w-12 h-12 rounded-xl flex items-center justify-center'">
+              <svg class="w-6 h-6" :class="tx.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <g v-html="tx.svg"></g>
+              </svg>
+            </div>
+            <div>
+              <p class="font-semibold text-navy-900">{{ tx.narrative }}</p>
+              <p class="text-sm text-navy-500">{{ formatDate(tx.transactionDate) }}</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Insights -->
-      <div v-if="currentTab === 'insights'" class="bg-white rounded-2xl shadow-sm border border-navy-100 p-4">
-        <div class="p-4 border-b border-navy-100">
-          <!-- Month Tabs -->
-          <div class="flex gap-2 mb-4 overflow-x-auto">
-            <button v-for="month in months" :key="month" @click="selectMonth(month)" :class="currentMonth === month
-              ? 'bg-blue-500 text-white px-4 py-1 rounded-full'
-              : 'bg-navy-100 text-navy-700 px-4 py-1 rounded-full'">
-              {{ formatMonthLabel(month) }}
-            </button>
-          </div>
-          <!-- Total Spending with "Spent this month" -->
-          <div class="mt-6">
-            <h2 class="text-3xl font-bold text-navy-900">{{ totalSpending }}</h2>
-            <p class="mt-2 text-base text-navy-500">Spent this month</p>
-          </div>
-        </div>
-
-        <div class="divide-y divide-navy-100">
-          <!-- Spending Categories with Icons and Progress Bars -->
-          <div v-for="(item, idx) in spendingSummary" :key="idx"
-            class="mb-4 flex items-center gap-2 p-6 hover:bg-navy-50 transition-colors">
-            <!-- Icon based on category -->
-            <span class="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100">
-              <i v-if="item.category === 'Food'" class="fas fa-utensils text-red-500 text-2xl"></i>
-              <i v-else-if="item.category === 'Transportation'" class="fas fa-bus text-blue-500 text-2xl"></i>
-              <i v-else class="fas fa-circle text-gray-500 text-2xl"></i>
+          <div class="text-right">
+            <p :class="['font-bold', tx.amountColor]">{{ tx.transactionAmount }}</p>
+            <span class="inline-block px-2 py-1" :class="[tx.statusBg, tx.statusColor, 'text-xs font-medium rounded-full mt-1']">
+              {{ tx.status }}
             </span>
-
-            <div class="flex-1 mb-4">
-              <!-- Category Info -->
-              <div class="flex justify-between items-center mb-1">
-                <!-- Category name and count -->
-                <div class="ml-2">
-                  <p class="text-2xl font-semibold text-navy-900 flex items-center gap-2">
-                    {{ item.category }}
-                  </p>
-                  <p class="text-lg text-navy-600">{{ item.count }} transactions</p>
-                </div>
-
-                <!-- Total spending -->
-                <p class="text-navy-600 font-medium">{{ item.amount }}</p>
-              </div>
-
-              <!-- Progress Bar -->
-              <div class="w-full bg-navy-100 rounded-full h-3 mt-2 ml-2">
-                <div class="bg-blue-500 h-3 rounded-full" :style="{ width: item.percentage + '%' }"></div>
-              </div>
-
-              <!-- Percentage (optional, below the bar) -->
-              <p class="text-right text-sm text-navy-500 mt-1">{{ item.percentage.toFixed(1) }}%</p>
-            </div>
           </div>
         </div>
       </div>
-    </main>
+    </div>
+  </div>
+
+  <!-- Insights -->
+  <div v-if="currentTab === 'insights'" class="bg-white rounded-2xl shadow-sm border border-navy-100 p-4">
+    <div class="p-4 border-b border-navy-100">
+      <!-- Month Tabs -->
+      <div class="flex gap-2 mb-4 overflow-x-auto">
+        <button v-for="month in months" :key="month" @click="selectMonth(month)" :class="currentMonth === month
+          ? 'bg-blue-500 text-white px-4 py-1 rounded-full'
+          : 'bg-navy-100 text-navy-700 px-4 py-1 rounded-full'">
+          {{ formatMonthLabel(month) }}
+        </button>
+      </div>
+
+      <!-- Total Spending with "Spent this month" -->
+      <div class="mt-6">
+        <h2 class="text-3xl font-bold text-navy-900">{{ totalSpending }}</h2>
+        <p class="mt-2 text-base text-navy-500">Spent this month</p>
+      </div>
+    </div>
+
+    <div class="divide-y divide-navy-100">
+      <!-- Show "No transactions" if empty -->
+      <div v-if="spendingSummary.length === 0" class="p-6 text-navy-500 font-medium">
+        No transactions for this month
+      </div>
+
+      <!-- Spending Categories with Icons and Progress Bars -->
+      <div v-else v-for="(item, idx) in spendingSummary" :key="idx"
+        class="mb-4 flex items-center gap-2 p-6 hover:bg-navy-50 transition-colors">
+        <span class="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100">
+          <i v-if="item.category === 'Food'" class="fas fa-utensils text-red-500 text-2xl"></i>
+          <i v-else-if="item.category === 'Transportation'" class="fas fa-bus text-blue-500 text-2xl"></i>
+          <i v-else class="fas fa-circle text-gray-500 text-2xl"></i>
+        </span>
+
+        <div class="flex-1 mb-4">
+          <div class="flex justify-between items-center mb-1">
+            <div class="ml-2">
+              <p class="text-2xl font-semibold text-navy-900 flex items-center gap-2">{{ item.category }}</p>
+              <p class="text-lg text-navy-600">{{ item.count }} transactions</p>
+            </div>
+            <p class="text-navy-600 font-medium">{{ item.amount }}</p>
+          </div>
+
+          <div class="w-full bg-navy-100 rounded-full h-3 mt-2 ml-2">
+            <div class="bg-blue-500 h-3 rounded-full" :style="{ width: item.percentage + '%' }"></div>
+          </div>
+
+          <p class="text-right text-sm text-navy-500 mt-1">{{ item.percentage.toFixed(1) }}%</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
   </div>
 </template>
+
 
 <script>
 import { fetchTransactionData, getAccountDetails as fetchAccountDetails, fetchMonthlyTransactionData } from "@/api/outsystems";
@@ -288,8 +275,8 @@ export default {
     selectMonth(month) {
       this.currentMonth = month;
       const summary = this.getMonthSummary(month);
-      this.spendingSummary = summary.categories;
-      this.totalSpending = summary.totalSpending;
+      this.spendingSummary = summary.categories; // could be empty array if no data
+      this.totalSpending = summary.totalSpending || "$0.00";
     },
 
     getMonthSummary(month) {
