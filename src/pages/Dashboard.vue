@@ -153,7 +153,7 @@
         <div class="p-4 border-b border-navy-100">
           <!-- Month Tabs -->
           <div class="flex gap-2 mb-4 overflow-x-auto">
-            <button v-for="month in months" :key="month" @click="currentMonth = month; computeSpendingSummary()" :class="currentMonth === month
+            <button v-for="month in months" :key="month" @click="selectMonth(month)" :class="currentMonth === month
               ? 'bg-blue-500 text-white px-4 py-1 rounded-full'
               : 'bg-navy-100 text-navy-700 px-4 py-1 rounded-full'">
               {{ formatMonthLabel(month) }}
@@ -238,7 +238,7 @@ export default {
   mounted() {
     this.getAccountDetails(this.currentAccNumber)
       .then((data) => {
-        console.log(data);
+        // console.log(data); //dont show on console
         this.balance = "$" + (data.Balance).toFixed(2);
       })
       .catch((error) => {
@@ -249,18 +249,34 @@ export default {
       .then((data) => {
         // console.log(data); // See your API response structure
         // Extract available months
-        const monthSet = new Set(
-          this.transactions.map((tx) => tx.transactionDate.slice(0, 7)) // "YYYY-MM"
+        const now = new Date();
+        const last6Months = [];
+        for (let i = 0; i < 6; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          last6Months.push(monthStr);
+        }
+
+        // Extract months from transactions
+        const transactionMonths = new Set(
+          this.transactions.map((tx) => tx.transactionDate.slice(0, 7))
         );
-        this.months = Array.from(monthSet).sort((a, b) => b.localeCompare(a)); // latest first
+
+        // Merge (to include months even if no transactions)
+        const allMonths = Array.from(new Set([...last6Months, ...transactionMonths]));
+        this.months = allMonths.sort((a, b) => b.localeCompare(a)); // latest first
         this.currentMonth = this.months[0] || null;
 
+        // Compute insights
         this.computeSpendingSummary();
 
       })
       .catch((error) => {
         console.error(error);
       });
+
+    // Fetch all transactions for insights (ignores date filter)
+    this.fetchAllTransactionsForInsights();
   },
   watch: {
     transactions: {
@@ -272,11 +288,26 @@ export default {
     },
   },
   methods: {
+
     formatDate,
     toggleBalance() {
       this.balanceVisible = !this.balanceVisible;
     },
 
+    selectMonth(month) {
+      this.currentMonth = month;
+      const summary = this.getMonthSummary(month);
+      this.spendingSummary = summary.categories;
+      this.totalSpending = summary.totalSpending;
+    },
+    
+    getMonthSummary(month) {
+      if (!this.monthlySummaries || this.monthlySummaries.length === 0) return { categories: [], totalSpending: "$0.00" };
+      const summary = this.monthlySummaries.find(s => s.month === month);
+      return summary || { categories: [], totalSpending: "$0.00" };
+    },
+
+    // Fetch transactions by date filter
     fetchTransactionData(currentAccNumber, startDate, endDate) {
       return fetchTransactionData(currentAccNumber, startDate, endDate)
         .then((data) => {
@@ -295,6 +326,42 @@ export default {
         });
     },
 
+    // Fetch all transactions for Insights
+    fetchAllTransactionsForInsights() {
+      const earliestDate = '1900-01-01';
+      const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+      return fetchTransactionData(this.currentAccNumber, earliestDate, today)
+        .then((data) => {
+          const enrichedTx = data.map(tx => enrichTransaction(tx, this.currentAccNumber));
+
+          // Store in a separate property for insights
+          this.allTransactions = enrichedTx;
+
+          // Extract all months
+          const transactionMonths = new Set(
+            enrichedTx.map(tx => tx.transactionDate.slice(0, 7))
+          );
+
+          const now = new Date();
+          const last6Months = [];
+          for (let i = 0; i < 6; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            last6Months.push(monthStr);
+          }
+
+          const allMonths = Array.from(new Set([...last6Months, ...transactionMonths]));
+          this.months = allMonths.sort((a, b) => b.localeCompare(a));
+          this.currentMonth = this.months[0] || null;
+
+          // Compute insights using all transactions
+          this.computeSpendingSummary(this.allTransactions);
+        })
+        .catch(console.error);
+    },
+
+
     getAccountDetails(currentAccNumber) {
       return fetchAccountDetails(currentAccNumber);
     },
@@ -312,50 +379,78 @@ export default {
       return date.toLocaleString("default", { month: "short", year: "numeric" });
     },
 
-    computeSpendingSummary() {
-      const categories = [
-        { name: "Food", keywords: ["dinner", "lunch", "breakfast"] },
-        { name: "Transportation", keywords: ["bus", "mrt"] },
-        // add more categories here
-      ];
+    computeSpendingSummary(transactionsArray) {
+      const txArray = transactionsArray || this.transactions;
 
-      const summary = {};
-      let totalSpending = 0;
+      if (!txArray || txArray.length === 0) {
+        this.monthlySummaries = [];
+        this.spendingSummary = [];
+        this.totalSpending = "$0.00";
+        return;
+      }
 
-      this.transactions
-        .filter(tx => this.currentMonth ? tx.transactionDate.startsWith(this.currentMonth) : true)
-        .forEach((tx) => {
-          let category = "Other"; // default to "Other"
+      const categoryKeywords = {
+        Food: ['mcdonald', 'kfc', 'burger', 'restaurant', 'foodpanda', 'grabfood', 'dinner', 'lunch', 'breakfast'],
+        Transportation: ['mrt', 'bus', 'grab', 'taxi', 'ezlink', 'ride', 'train'],
+        Shopping: ['shopee', 'lazada', 'uniqlo', 'zara', 'mall', 'store', 'retail', 'clothes', 'fashion'],
+      };
 
-          if (tx.narrative && tx.narrative.trim() !== "") {
-            const narrative = tx.narrative.toLowerCase();
-            for (const cat of categories) {
-              if (cat.keywords.some(keyword => narrative.includes(keyword.toLowerCase()))) {
-                category = cat.name;
-                break;
-              }
-            }
+      const monthlyData = {};
+
+      txArray.forEach(tx => {
+        const txMonth = tx.transactionDate?.slice(0, 7);
+        if (!txMonth) return;
+
+        if (!monthlyData[txMonth]) monthlyData[txMonth] = { categories: {}, totalSpending: 0 };
+
+        // Only outflows
+        if (tx.accountTo === this.currentAccNumber) return;
+
+        const narrative = (tx.narrative || '').toLowerCase();
+        let category = 'Others';
+        for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+          if (keywords.some(word => narrative.includes(word))) {
+            category = cat;
+            break;
           }
+        }
 
-          const amount = parseFloat(tx.transactionAmount.replace(/[$+-]/g, "")) || 0;
+        const amt = parseFloat(tx.transactionAmount?.replace(/[^0-9.]/g, '')) || 0;
 
-          // only count outflow as spending
-          if (tx.transactionAmount.startsWith("-")) {
-            totalSpending += amount;
-            if (!summary[category]) summary[category] = { amount: 0, count: 0 };
-            summary[category].amount += amount;
-            summary[category].count += 1;
-          }
-        });
+        if (!monthlyData[txMonth].categories[category]) {
+          monthlyData[txMonth].categories[category] = { amount: 0, count: 0 };
+        }
 
-      this.totalSpending = `$${totalSpending.toFixed(2)}`;
+        monthlyData[txMonth].categories[category].amount += amt;
+        monthlyData[txMonth].categories[category].count += 1;
+        monthlyData[txMonth].totalSpending += amt;
+      });
 
-      this.spendingSummary = Object.keys(summary).map((category) => ({
-        category,
-        amount: `$${summary[category].amount.toFixed(2)}`,
-        count: summary[category].count,
-        percentage: totalSpending > 0 ? (summary[category].amount / totalSpending) * 100 : 0,
-      }));
+      const summaries = Object.entries(monthlyData).map(([month, data]) => {
+        const categories = Object.entries(data.categories).map(([category, info]) => ({
+          category,
+          amount: `$${info.amount.toFixed(2)}`,
+          count: info.count,
+          percentage: data.totalSpending ? (info.amount / data.totalSpending) * 100 : 0
+        }));
+        categories.sort((a, b) => b.percentage - a.percentage);
+
+        return {
+          month,
+          totalSpending: `$${data.totalSpending.toFixed(2)}`,
+          categories
+        };
+      }).sort((a, b) => b.month.localeCompare(a.month)); // latest first
+
+      this.monthlySummaries = summaries;
+
+      // Set current month summary for display
+      const currentSummary = summaries.find(s => s.month === this.currentMonth) || summaries[0];
+      this.spendingSummary = currentSummary?.categories || [];
+      this.totalSpending = currentSummary?.totalSpending || "$0.00";
+
+      // Update months array for tabs
+      this.months = summaries.map(s => s.month);
     }
   },
 };
