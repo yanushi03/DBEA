@@ -209,7 +209,7 @@
 
 <script>
 import { fetchTransactionData, getAccountDetails as fetchAccountDetails, fetchMonthlyTransactionData } from "@/api/outsystems";
-import { formatDate } from "../main";
+import { formatDate } from "../utils/date";
 import { getAccountId } from "../router/auth";
 export default {
   data() {
