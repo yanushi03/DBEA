@@ -135,16 +135,8 @@
                     <p :class="['font-bold', tx.amountColor]">
                       {{ tx.transactionAmount }}
                     </p>
-                    <!-- <span class="inline-block px-2 py-1" :class="[
-                      tx.statusBg,
-                      tx.statusColor,
-                      'text-xs font-medium rounded-full mt-1',
-                    ]">
-                      {{ tx.status }}
-                    </span> -->
-                    <button
-                      class="px-6 py-3 rounded-lg font-bold text-white shadow transition transform hover:scale-105 focus:outline-none"
-                      style="background: linear-gradient(90deg, #ff5e62 50%, #ffc371 50%); border: none;">
+                    <button v-if="tx.accountFrom == currentAccNumber" @click="splitExpense"
+                      class="px-2 py-1 my-3 rounded-lg font-semibold bg-blue-500 text-white shadow transition transform hover:bg-blue-600 focus:outline-none text-sm">
                       Split Expenses
                     </button>
 
@@ -338,6 +330,10 @@ export default {
       if (this.currentPage > 1) {
         this.currentPage--;
       }
+    },
+
+    splitExpense(){
+      console.log("hehe")
     },
 
     formatDate,
