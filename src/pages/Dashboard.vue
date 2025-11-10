@@ -7,9 +7,16 @@
           <div>
             <p class="text-navy-300 text-sm mb-1">Total Balance</p>
             <div class="flex items-center gap-3">
+
               <h1 class="text-4xl font-bold">
                 {{ balanceVisible ? balance : hiddenBalance }}
+                <span v-if="balanceVisible"
+                  :class="balanceDifference > 0 ? 'text-green-500' : balanceDifference < 0 ? 'text-red-500' : 'text-gray-500'"
+                  class="ml-3 text-xl font-semibold">
+                  ({{ balanceDiffString }})
+                </span>
               </h1>
+
               <button class="p-2 hover:bg-navy-700 rounded-lg transition-colors" @click="toggleBalance">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <template v-if="balanceVisible">
@@ -261,7 +268,7 @@ export default {
       endDate: now.toLocaleDateString('en-CA'),
       currentPage: 1,
       itemsPerPage: 4, // adjust per page count here
-      // transactions: [], // your fetched transactions
+      allTransactions: [], // your fetched transactions
     };
 
   },
@@ -319,6 +326,23 @@ export default {
       const end = start + this.itemsPerPage;
       return this.transactions.slice(start, end);
     },
+    transactionSum() {
+      // This assumes `transactionAmount` is positive for inflow, negative for outflow
+      return this.allTransactions.reduce((sum, tx) => sum + parseFloat(tx.transactionAmount?.replace(/[\$]/g, '')), 0);
+    },
+    balanceDifference() {
+      console.log(this.transactionSum)
+      console.log(this.balance)
+      return this.transactionSum - this.balance.replace(/[\$]/g, '');
+    },
+    balanceDiffString() {
+      if (this.balanceDifference > 0) {
+        return `+${this.balanceDifference.toFixed(2)}`;
+      } else if (this.balanceDifference < 0) {
+        return `${this.balanceDifference.toFixed(2)}`;
+      }
+      return '0.00';
+    }
   },
   methods: {
     nextPage() {
@@ -332,7 +356,7 @@ export default {
       }
     },
 
-    splitExpense(){
+    splitExpense() {
       console.log("hehe")
     },
 
