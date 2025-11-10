@@ -75,3 +75,31 @@ export async function getAccountDetails(accountId) {
   }
 }
 
+export async function getUsers() {
+  try {
+    const response = await axios.get(`${customerAPIUrl}/customers`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    return response.data;
+  } catch (err) {
+    console.error("Unable to fetch all users because: " + err)
+    throw err;
+  }
+}
+
+export async function getAccountBalance(customerId, accountId) {
+  try {
+    const response = await axios.get(`${transactionURL}/account/${customerId}/${accountId}/balance`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    return response.data;
+  } catch (err) {
+    console.error("Unable to fetch all users because: " + err)
+    throw err;
+  }
+}
+
