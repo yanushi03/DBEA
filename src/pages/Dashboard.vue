@@ -173,7 +173,7 @@
 
       <!-- Insights -->
       <div v-if="currentTab === 'insights'" class="bg-white rounded-2xl shadow-sm border border-navy-100 p-4">
-        <div class="p-4 border-b border-navy-100">
+        <div id="summary-header" class="p-4 border-b border-navy-100">
           <!-- Month Tabs -->
           <div class="flex gap-2 mb-4 overflow-x-auto">
             <button v-for="month in months" :key="month" @click="selectMonth(month)" :class="currentMonth === month
@@ -189,7 +189,7 @@
           </div>
         </div>
 
-        <div class="divide-y divide-navy-100">
+        <div id="summary-body" class="divide-y divide-navy-100">
           <!-- Show "No transactions" if empty -->
           <div v-if="spendingSummary.length === 0" class="p-6 text-navy-500 font-medium">
             No transactions for this month
