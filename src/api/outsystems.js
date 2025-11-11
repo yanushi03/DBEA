@@ -103,3 +103,58 @@ export async function getAccountBalance(customerId, accountId) {
   }
 }
 
+export async function checkPhoneNumberExists(phoneNumber) {
+  try {
+    const response = await axios.get(
+      `https://personal-hvvfag03.outsystemscloud.com/Customers/rest/Customers/customer/${phoneNumber}/`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    // If 404, phone number doesn't exist
+    if (error.response && error.response.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function createExpense(expenseRequest) {
+  try {
+    const response = await axios.post(
+      'https://personal-jgmpftzu.outsystemscloud.com/Expense_Service/rest/ExpenseAPI/CreateExpense',
+      expenseRequest,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error creating expense:', error.response ? error.response.data : error);
+    throw error.response ? error.response.data : error;
+  }
+}
+
+export async function getMySplitExpense(customerId) {
+  try {
+    const response = await axios.get(
+      `https://personal-jgmpftzu.outsystemscloud.com/Expense_Service/rest/ExpenseAPI/GetMySplitExpenses?CustomerId=${customerId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching split expenses:', error.response ? error.response.data : error);
+    throw error.response ? error.response.data : error;
+  }
+}
+
