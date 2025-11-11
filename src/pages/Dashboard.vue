@@ -394,7 +394,7 @@
 </template>
 
 <script>
-import { fetchTransactionData, getAccountDetails as fetchAccountDetails, fetchMonthlyTransactionData, createExpense, getMySplitExpense } from "@/api/outsystems";
+import { fetchTransactionData, getAccountDetails as fetchAccountDetails, fetchMonthlyTransactionData, createExpense, getMySplitExpense, sendNotifications } from "@/api/outsystems";
 import { formatDate } from "../utils/date";
 import { getAccountId } from "../router/auth";
 import { formatIdForOutSystems } from "../utils/idFormatter";
@@ -542,12 +542,11 @@ export default {
       // Handle the split expense confirmation
       try {
         // Get current user's MemberId from account details
-        // Adjust these field names based on your actual API response structure
-        let paidByMemberId = this.accountDetails?.CustomerId || 
-                            this.accountDetails?.MemberId || 
-                            this.accountDetails?.Id || 
-                            this.currentAccNumber;
-        
+        let paidByMemberId = this.accountDetails?.CustomerId ||
+          this.accountDetails?.MemberId ||
+          this.accountDetails?.Id ||
+          this.currentAccNumber;
+
         if (!paidByMemberId) {
           alert('Error: Could not find your member ID. Please try again.');
           return;
@@ -580,9 +579,6 @@ export default {
         // Validate that we have all required MemberIds
         if (splitDetails.length !== splitData.phoneNumbers.length) {
           alert('Error: Some phone numbers are missing member IDs. Please remove and re-add them.');
-          if (this.$refs.splitExpenseModal) {
-            this.$refs.splitExpenseModal.isSubmitting = false;
-          }
           return;
         }
 
@@ -604,22 +600,33 @@ export default {
           Notes: `Split expense for transaction: ${splitData.transaction.narrative}`,
           SplitType: 'Equal', // Or 'Custom' if you implement custom splits
           SplitDetails: splitDetails,
-          BankTransactionId: splitData.transaction.transactionId || 
-                            splitData.transaction.id || 
-                            splitData.transaction.TransactionId || 
-                            ''
+          BankTransactionId: splitData.transaction.transactionId ||
+            splitData.transaction.id ||
+            splitData.transaction.TransactionId ||
+            ''
         };
 
         // Call the API
         const response = await createExpense(expenseRequest);
-        
-        // Success - reset modal submitting state
-        if (this.$refs.splitExpenseModal) {
-          this.$refs.splitExpenseModal.isSubmitting = false;
+
+        if (response?.Success === false) {
+          throw new Error(response?.Message || 'Failed to create split expense. Please try again.');
         }
-        
-        alert(`Split expense created successfully! Amount per person: ${splitData.splitAmount}`);
-        
+
+        let notificationErrors = [];
+        try {
+          notificationErrors = await this.notifySplitParticipants(splitData);
+        } catch (notifyError) {
+          console.error('Error sending notifications:', notifyError);
+          notificationErrors.push(notifyError?.message || 'Notifications failed to send');
+        }
+
+        let successMessage = `Split expense created successfully! Amount per person: ${splitData.splitAmount}`;
+        if (notificationErrors.length > 0) {
+          successMessage += `\nHowever, some notifications failed: ${notificationErrors.join(', ')}.`;
+        }
+        alert(successMessage);
+
         // Close modal
         this.closeSplitModal();
         
@@ -633,20 +640,167 @@ export default {
         
       } catch (error) {
         console.error('Error creating split expense:', error);
-        
-        // Reset modal submitting state on error
+
+        if (this.$refs.splitExpenseModal) {
+          this.$refs.splitExpenseModal.errorMessage = error?.response?.data?.message ||
+            error?.message ||
+            'Failed to create split expense. Please try again.';
+        }
+
+        const errorMessage = error?.response?.data?.message ||
+          error?.message ||
+          'Failed to create split expense. Please try again.';
+        alert(`Error: ${errorMessage}`);
+      } finally {
+        // Reset modal submitting state regardless of outcome
         if (this.$refs.splitExpenseModal) {
           this.$refs.splitExpenseModal.isSubmitting = false;
-          this.$refs.splitExpenseModal.errorMessage = error?.response?.data?.message || 
-                                                       error?.message || 
-                                                       'Failed to create split expense. Please try again.';
         }
-        
-        const errorMessage = error?.response?.data?.message || 
-                             error?.message || 
-                             'Failed to create split expense. Please try again.';
-        alert(`Error: ${errorMessage}`);
       }
+    },
+
+    async notifySplitParticipants(splitData) {
+      if (!splitData || !Array.isArray(splitData.phoneNumbers) || splitData.phoneNumbers.length === 0) {
+        return [];
+      }
+
+      const payerName = this.accountDetails?.FullName ||
+        this.accountDetails?.Name ||
+        this.accountDetails?.customerName;
+
+      const expenseDescription = splitData.transaction?.narrative || 'an expense';
+      const expenseDateFormatted = splitData.transaction?.transactionDate
+        ? this.formatDateForNotification(splitData.transaction.transactionDate)
+        : this.formatDateForNotification(new Date().toISOString());
+      const shareFormatted = parseFloat(splitData.numericSplitAmount || 0).toFixed(2);
+      const totalFormatted = parseFloat(splitData.totalAmount || 0).toFixed(2);
+
+      const notificationErrors = [];
+      const participantSummaries = [];
+
+      await Promise.all(splitData.phoneNumbers.map(async participant => {
+        const recipientName = participant.name || 'there';
+        const recipientEmail = participant.email || participant.Email || null;
+        const recipientPhone = participant.phone || participant.number || participant.phoneNumber || null;
+
+        if (!recipientEmail && !recipientPhone) {
+          console.warn('No contact details available for participant', participant);
+          notificationErrors.push(`no contact details for ${recipientName}`);
+          return;
+        }
+
+        const subject = `Split expense: ${expenseDescription} 💳`;
+        const emailBody = `Hello ${recipientName},\n\n${payerName} has allocated a shared expense for ${expenseDescription} dated ${expenseDateFormatted}.\nTotal amount: $${totalFormatted}\nYour assigned share: $${shareFormatted}.\n\nPlease sign in to your account to review and manage this expense🏦`;
+        const smsBody = `Split expense:\n${payerName} shared an expense for ${expenseDescription}.\nDate: ${expenseDateFormatted}\nYour share: $${shareFormatted}\nPlease review in your account.`;
+
+        const results = await sendNotifications({
+          receipientEmail: recipientEmail,
+          subject,
+          emailBody,
+          receipientPhoneNumber: recipientPhone,
+          smsBody,
+          notificationType: 'SPLIT_EXPENSE'
+        });
+
+        if (results.email && results.email.success === false) {
+          notificationErrors.push(`email to ${recipientEmail}`);
+        }
+
+        if (results.sms && results.sms.success === false) {
+          notificationErrors.push(`SMS to ${recipientPhone}`);
+        }
+
+        participantSummaries.push({
+          name: recipientName,
+          share: shareFormatted,
+          email: recipientEmail,
+          phone: recipientPhone
+        });
+      }));
+
+      await this.notifyPayer({
+        recipientCount: participantSummaries.length,
+        participants: participantSummaries,
+        expenseDescription,
+        expenseDateFormatted,
+        totalAmount: totalFormatted,
+        shareAmount: shareFormatted
+      });
+
+      return notificationErrors;
+    },
+
+    async notifyPayer(notificationInput) {
+      const payerContact = this.getPayerContactDetails();
+      if (!payerContact.email && !payerContact.phone) {
+        return;
+      }
+
+      const { subject, emailBody, smsBody } = this.buildPayerNotification({
+        payerName: payerContact.name,
+        ...notificationInput
+      });
+
+      await sendNotifications({
+        receipientEmail: payerContact.email,
+        subject,
+        emailBody,
+        receipientPhoneNumber: payerContact.phone,
+        smsBody,
+        notificationType: 'SPLIT_EXPENSE_PAYER'
+      });
+    },
+
+    getPayerContactDetails() {
+      return {
+        email: this.accountDetails?.Email || this.accountDetails?.email || null,
+        phone: this.accountDetails?.PhoneNumber || this.accountDetails?.MobileNumber || this.accountDetails?.phone || null,
+        name: this.accountDetails?.FullName ||
+          this.accountDetails?.Name ||
+          this.accountDetails?.customerName ||
+          'Customer'
+      };
+    },
+
+    buildPayerNotification({
+      payerName,
+      recipientCount,
+      participants,
+      expenseDescription,
+      expenseDateFormatted,
+      totalAmount,
+      shareAmount
+    }) {
+      const participantSummary = this.formatParticipantSummary(participants);
+
+      const subject = `Split expense confirmed: ${expenseDescription}💳`;
+      const emailBody = `Hello ${payerName},\n\nYour split expense for ${expenseDescription} on ${expenseDateFormatted} has been processed.\nTotal amount: $${totalAmount}\nAssigned share per participant: $${shareAmount}\n\nParticipants (${recipientCount}):\n${participantSummary}\n\nYou can review this split anytime from your account🏦`;
+      const smsBody = `Your split expense for \n${expenseDescription} was successfully created.\nDate: ${expenseDateFormatted}\nTotal: $${totalAmount}\nParticipants: ${recipientCount}\nReview in your account.`;
+
+      return { subject, emailBody, smsBody };
+    },
+
+    formatParticipantSummary(participants) {
+      if (!participants || participants.length === 0) {
+        return 'No participants were notified.';
+      }
+
+      return participants.map(participant => `• ${participant.name}`).join('\n');
+    },
+
+    formatDateForNotification(dateString) {
+      if (!dateString) {
+        return new Date().toLocaleDateString();
+      }
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return new Date().toLocaleDateString();
+      }
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
     },
 
     formatDate,
@@ -657,7 +811,7 @@ export default {
     selectMonth(month) {
       this.currentMonth = month;
       const summary = this.getMonthSummary(month);
-      this.spendingSummary = summary.categories; // could be empty array if no data
+      this.spendingSummary = summary.categories;
       this.totalSpending = summary.totalSpending || "$0.00";
     },
 
@@ -667,7 +821,7 @@ export default {
     },
 
     async fetchSplitExpenses() {
-      if (this.loadingSplitExpenses) return; // Prevent multiple simultaneous calls
+      if (this.loadingSplitExpenses) return; 
       
       this.loadingSplitExpenses = true;
       try {

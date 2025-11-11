@@ -227,7 +227,9 @@ export default {
             number: phoneNum,
             name: customerData.name || customerData.customerName || customerData.FullName || null,
             customerId: memberId,
-            memberId: memberId // Store both for compatibility
+            memberId: memberId, // Store both for compatibility
+            email: customerData.email || customerData.Email || customerData.emailAddress || null,
+            phone: customerData.phone || customerData.Phone || customerData.PhoneNumber || customerData.phoneNumber || phoneNum
           });
           this.phoneNumber = '';
           this.successMessage = 'Phone number added successfully';

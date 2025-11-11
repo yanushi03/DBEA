@@ -217,6 +217,70 @@ export async function sendSMSNotification(receipientPhoneNumber, messageBody, no
   }
 }
 
+export async function sendNotifications({
+  receipientEmail,
+  subject,
+  emailBody,
+  receipientPhoneNumber,
+  smsBody,
+  notificationType
+}) {
+  const results = {
+    email: null,
+    sms: null
+  };
+
+  const tasks = [];
+
+  if (receipientEmail && emailBody) {
+    tasks.push(
+      sendEmailNotification(
+        receipientEmail,
+        subject || '',
+        emailBody,
+        notificationType || ''
+      ).then((response) => {
+        results.email = {
+          success: response?.Success !== false,
+          response
+        };
+      }).catch((error) => {
+        results.email = {
+          success: false,
+          error
+        };
+      })
+    );
+  }
+
+  if (receipientPhoneNumber && smsBody) {
+    tasks.push(
+      sendSMSNotification(
+        receipientPhoneNumber,
+        smsBody,
+        notificationType || ''
+      ).then((response) => {
+        results.sms = {
+          success: response?.Success !== false,
+          response
+        };
+      }).catch((error) => {
+        results.sms = {
+          success: false,
+          error
+        };
+      })
+    );
+  }
+
+  if (tasks.length === 0) {
+    return results;
+  }
+
+  await Promise.allSettled(tasks);
+  return results;
+}
+
 export async function addMember(walletId, accountId, role, invitedBy) {
   try {
     console.log({
