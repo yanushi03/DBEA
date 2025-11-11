@@ -271,7 +271,7 @@
 
           <!-- Split Expenses List -->
           <div v-else>
-            <div v-for="(expense, idx) in splitExpenses" :key="idx" class="p-6 hover:bg-navy-50 transition-colors">
+            <div v-for="(expense, idx) in splitExpenses" :key="idx" class="bg-gray-50 mb-8 p-6 hover:bg-navy-50 transition-colors">
               <div class="flex items-start justify-between">
                 <div class="flex-1">
                   <div class="flex items-center gap-3 mb-2">
