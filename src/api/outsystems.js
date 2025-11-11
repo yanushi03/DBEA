@@ -8,6 +8,9 @@ const password = process.env.VUE_APP_API_PASSWORD;
 //get customers service API url
 const customerAPIUrl = process.env.VUE_APP_CUSTOMER_SERVICE_API_URL;
 
+// Notification service API url
+const notificationAPIUrl = process.env.VUE_APP_NOTIFICATION_SERVICE_API_URL;
+
 // Basic Auth
 
 const basicAuth = btoa(`${username}:${password}`);
@@ -103,3 +106,55 @@ export async function getAccountBalance(customerId, accountId) {
   }
 }
 
+// Send Email Notification
+export async function sendEmailNotification(receipientEmail, subject, messageBody, notificationType) {
+  try {
+    const response = await axios.post(
+      `${notificationAPIUrl}/SendEmailNotification`,
+      {
+        receipientEmail,
+        subject,
+        messageBody,
+        notificationType
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Send email notification failed:",
+      error.response ? error.response.data : error
+    );
+    throw error.response ? error.response.data : error;
+  }
+}
+
+//Send SMS Notification
+export async function sendSMSNotification(receipientPhoneNumber, messageBody, notificationType) {
+  try {
+    const response = await axios.post(
+      `${notificationAPIUrl}/SendSMSNotification`,
+      {
+        receipientPhoneNumber,
+        messageBody,
+        notificationType
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Send SMS notification failed:",
+      error.response ? error.response.data : error
+    );
+    throw error.response ? error.response.data : error;
+  }
+}
