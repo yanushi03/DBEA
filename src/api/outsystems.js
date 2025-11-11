@@ -4,6 +4,8 @@ import axios from 'axios'; // Add this at the top
 const apiUrl = process.env.VUE_APP_API_URL;
 const username = process.env.VUE_APP_API_USERNAME;
 const password = process.env.VUE_APP_API_PASSWORD;
+// Basic Auth
+const basicAuth = btoa(`${username}:${password}`);
 
 //get customers service API url
 const customerAPIUrl = process.env.VUE_APP_CUSTOMER_SERVICE_API_URL;
@@ -14,10 +16,8 @@ const notificationAPIUrl = process.env.VUE_APP_NOTIFICATION_SERVICE_API_URL;
 //Expense service API url
 const expenseAPIUrl = process.env.VUE_APP_EXPENSE_SERVICE_API_URL;
 
-// Basic Auth
-
-const basicAuth = btoa(`${username}:${password}`);
-
+// Wallet Service API URL
+const walletAPIUrl = process.env.VUE_APP_WALLET_SERVICE_API_URL;
 
 export async function fetchTransactionData(accountNum, startDate, endDate) {
   // Create query parameters using URLSearchParams
@@ -214,5 +214,46 @@ export async function sendSMSNotification(receipientPhoneNumber, messageBody, no
       error.response ? error.response.data : error
     );
     throw error.response ? error.response.data : error;
+  }
+}
+
+export async function addMember(walletId, accountId, role, invitedBy) {
+  try {
+    console.log({
+      walletId, accountId, role, invitedByAccountId: invitedBy
+    });
+    const response = await axios.post(
+      `${walletAPIUrl}/AddMemberToWallet`,  // URL
+      {
+        WalletId: walletId,
+        AccountId: accountId,
+        Role: role,
+        InvitedByAccountId: invitedBy
+      },
+
+    );
+    console.log("Add member response:", response); // Correct place to log
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Add Member failed:",
+      error.response ? error.response.data : error
+    );
+    throw error.response ? error.response.data : error;
+  }
+}
+
+export async function getWallet(walletId) {
+  try {
+    const response = await axios.get(`${walletAPIUrl}/GetWalletDetails?WalletId=${walletId}`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    return response.data;
+  } catch (err) {
+    console.error("Unable to fetch wallet because: " + err)
+    throw err;
   }
 }

@@ -50,13 +50,18 @@
             @click="openModal">Add Member</button>
 
           <ModalComponent v-if="showModal" :modal-title="'Add User to Wallet'" @close="closeModal">
-            <form @submit.prevent="handleAddUser" class="space-y-4">
+            <form @submit.prevent="addMember" class="space-y-4">
               <label class="block text-sm font-medium">
                 User Account ID:
-                <input v-model="newUserID" class="block w-full mt-2 p-2 border rounded text-black" required />
+                <select v-model="newUserID" class="block w-full mt-2 p-2 border rounded text-black" required>
+                  <option disabled value="">-- Select User --</option>
+                  <option v-for="user in availableUsers" :key="user.AccountId" :value="user.AccountId">
+                    {{ user.FullName }}: {{ user.AccountId }}
+                  </option>
+                </select>
               </label>
               <div class="flex gap-3 mt-6">
-                <button type="submit" @click="addMember"
+                <button type="submit"
                   class="px-4 py-2 rounded bg-purple-600 text-white font-semibold hover:bg-purple-700 transition">
                   Add User
                 </button>
@@ -158,7 +163,9 @@
 
 <script>
 import ModalComponent from './ModalComponent.vue';
-import { getUsers } from "@/api/outsystems";
+import { getUsers, addMember, getWallet } from "@/api/outsystems";
+import { getAccountId } from "../router/auth";
+
 
 export default {
   components: { ModalComponent },
@@ -171,13 +178,9 @@ export default {
       totalContributions: '$18,200.00',
       totalSpending: '$5,749.25',
       activeMembers: 0,
-      members: [
-        { initials: 'JD', name: 'John Doe', email: 'john.doe@email.com', amount: '$6,500.00', role: 'Owner', bgClass: 'bg-navy-600', roleBgClass: 'bg-purple-100', roleTextClass: 'text-purple-700' },
-        { initials: 'SM', name: 'Sarah Miller', email: 'sarah.m@email.com', amount: '$5,200.00', role: 'Admin', bgClass: 'bg-pink-500', roleBgClass: 'bg-blue-100', roleTextClass: 'text-blue-700' },
-      ],
-
+      members: [],
       walletName: 'T-Bank Wallet',
-      walletId: '1234',
+      walletId: '4',
       transactions: [
         {
           title: 'John added funds',
@@ -193,13 +196,25 @@ export default {
         },
       ],
 
+      accounts: [],
+
       // Add New Member to Wallet
       showModal: false,
-      newUserID: ''
+      newUserID: '',
+      currentAccount: getAccountId(),
+
+    }
+  },
+  computed: {
+    availableUsers() {
+      return this.accounts.filter(accountId =>
+        !this.members.some(member => member.accId === accountId.AccountId)
+      );
     }
   },
   mounted() {
-    this.getUsers()
+    this.getUsers(),
+      this.getWalletDetails()
   },
   methods: {
     toggleSharedBalance() {
@@ -208,26 +223,48 @@ export default {
     openModal() { this.showModal = true; },
     closeModal() { this.showModal = false; },
 
-    // Change this
     addMember() {
-      console.log(this.newUserID)
-      this.closeModal();
+      addMember(this.walletId, this.newUserID, "Member", this.currentAccount)
+        .then(() => {
+          this.closeModal();
+          this.getWalletDetails()
+        })
+        .catch(error => {
+          console.error("Add Member failed:", error);
+          if (error.response) {
+            console.error("Backend error response:", error.response.data);
+          } else {
+            console.error("General JS error:", error);
+          }
+        });
+    },
+
+    getWalletDetails() {
+      return getWallet(this.walletId)
+        .then((data) => {
+          console.log(data.GetWalletDetails)
+          this.walletId = data.GetWalletDetails.WalletId
+          this.walletName = data.GetWalletDetails.Name
+          // this.sharedBalance =data.GetWalletDetails.Balance
+          this.members = data.GetWalletDetails.Members.map(user => ({
+            initials: user.initials || getInitials(user.Fullname),
+            name: user.Fullname,
+            email: user.Email,
+            amount: user.amount || '-',
+            role: user.Role || 'Member',
+            bgClass: user.Role === 'Owner' ? 'bg-yellow-600' : (user.bgClass || 'bg-navy-600'),
+            roleBgClass: user.Role === 'Owner' ? 'bg-yellow-100' : (user.roleBgClass || 'bg-purple-100'),
+            roleTextClass: user.Role === 'Owner' ? 'text-yellow-700' : (user.roleTextClass || 'text-purple-700'),
+            accId: user.AccountId
+          }));
+        })
+
     },
     getUsers() {
       return getUsers()
         .then((data) => {
-          this.members = data.map(user => ({
-            initials: user.initials || getInitials(user.FullName),
-            name: user.FullName,
-            email: user.Email,
-            amount: user.amount || '-',
-            role: user.role || 'Member',
-            bgClass: user.bgClass || 'bg-navy-600',
-            roleBgClass: user.roleBgClass || 'bg-purple-100',
-            roleTextClass: user.roleTextClass || 'text-purple-700'
-          }));
           for (let index = 0; index < data.length; index++) {
-            console.log(data[index])
+            this.accounts.push(data[index])
           }
         });
     }
