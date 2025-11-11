@@ -11,6 +11,9 @@ const customerAPIUrl = process.env.VUE_APP_CUSTOMER_SERVICE_API_URL;
 // Notification service API url
 const notificationAPIUrl = process.env.VUE_APP_NOTIFICATION_SERVICE_API_URL;
 
+//Expense service API url
+const expenseAPIUrl = process.env.VUE_APP_EXPENSE_SERVICE_API_URL;
+
 // Basic Auth
 
 const basicAuth = btoa(`${username}:${password}`);
@@ -109,7 +112,7 @@ export async function getAccountBalance(customerId, accountId) {
 export async function checkPhoneNumberExists(phoneNumber) {
   try {
     const response = await axios.get(
-      `https://personal-hvvfag03.outsystemscloud.com/Customers/rest/Customers/customer/${phoneNumber}/`,
+      `${customerAPIUrl}/customer/${phoneNumber}/`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -129,7 +132,7 @@ export async function checkPhoneNumberExists(phoneNumber) {
 export async function createExpense(expenseRequest) {
   try {
     const response = await axios.post(
-      'https://personal-jgmpftzu.outsystemscloud.com/Expense_Service/rest/ExpenseAPI/CreateExpense',
+      `${expenseAPIUrl}/CreateExpense`,
       expenseRequest,
       {
         headers: {
@@ -147,7 +150,7 @@ export async function createExpense(expenseRequest) {
 export async function getMySplitExpense(customerId) {
   try {
     const response = await axios.get(
-      `https://personal-jgmpftzu.outsystemscloud.com/Expense_Service/rest/ExpenseAPI/GetMySplitExpenses?CustomerId=${customerId}`,
+      `${expenseAPIUrl}/GetMySplitExpenses?CustomerId=${customerId}`,
       {
         headers: {
           "Content-Type": "application/json",
