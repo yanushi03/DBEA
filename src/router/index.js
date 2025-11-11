@@ -4,6 +4,8 @@ import Dashboard from '../pages/Dashboard.vue'; // your homepage component
 import SharedWallet from '../pages/SharedWallet.vue';
 import Login from "../pages/Login.vue";
 import Profile from "../pages/Profile.vue";
+import MySharedWallets from "../pages/MySharedWallets.vue";
+import WalletDetails from "../pages/WalletDetails.vue";
 import { isAuthenticated } from './auth';
 
 
@@ -15,6 +17,8 @@ const router = new Router({
     { path: "/", name: "Login", component: Login }, // Homepage at "/"
     { path: "/dashboard", name: "Dashboard" ,component: Dashboard },
     { path: "/shared-wallet", component: SharedWallet },
+    { path: "/my-wallets", name: "MySharedWallets", component: MySharedWallets },
+    { path: "/wallets/:walletId", name: "WalletDetails", component: WalletDetails, props: true },
     { path: "/profile", name: "Profile", component: Profile },
     // Add more pages here
   ],

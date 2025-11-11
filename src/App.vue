@@ -25,6 +25,10 @@
                 active-class="font-bold border-b-2 border-navy-600 text-navy-900">
                 Shared Wallet
               </router-link>
+              <router-link to="/my-wallets" class="text-navy-600 hover:text-navy-900 transition-colors pb-1"
+                active-class="font-bold border-b-2 border-navy-600 text-navy-900">
+                My Shared Wallets
+              </router-link>
             </nav>
           </div>
           <div class="flex items-center gap-4">

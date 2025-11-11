@@ -321,3 +321,17 @@ export async function getWallet(walletId) {
     throw err;
   }
 }
+
+export async function getWalletList(AccountId) {
+  try {
+    const response = await axios.get(`${walletAPIUrl}/GetWalletListByAccId?AccountId=${AccountId}`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    return response.data;
+  } catch (err) {
+    console.error("Unable to fetch wallet because: " + err)
+    throw err;
+  }
+}
