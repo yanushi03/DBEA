@@ -134,7 +134,7 @@ export async function topUpWallet(
 //--------------------- END OF WITHDRAWAL FROM DEPOSIT ACCOUNT API---------------------------------//
 
 //--------------------- GET WALLET DETAILS ---------------------------------//
-export async function getWalletTransactions(walletId) {
+export async function getWalletDetails(walletId) {
   const url = `${walletAPIUrl}/GetWalletDetails?WalletId=${walletId}`;
 
   try {
