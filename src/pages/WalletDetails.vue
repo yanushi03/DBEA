@@ -143,7 +143,7 @@
               </div>
             </div>
             <div class="text-right">
-              <p class="font-bold text-navy-900">{{ member.amount || "-" }}</p>
+              <p class="font-bold text-navy-900">{{ member.amount }}</p>
               <p class="text-sm text-navy-500">Contributed</p>
             </div>
           </div>
@@ -271,11 +271,12 @@ export default {
         const members = Array.isArray(details.Members) ? details.Members : [];
         this.members = members.map((member) => {
           const fullName = member.Fullname || member.FullName || "Unknown User";
+          const amountContributed = member.AmountContributed ?? 0;
           return {
             initials: getInitials(fullName),
             name: fullName,
             email: member.Email || member.email || "",
-            amount: member.amount ? this.formatCurrency(member.amount) : null,
+            amount: this.formatCurrency(amountContributed),
             role: member.Role || "Member",
             bgClass: member.Role === "Owner" ? "bg-yellow-600" : "bg-navy-600",
             roleBgClass: member.Role === "Owner" ? "bg-yellow-100" : "bg-purple-100",
