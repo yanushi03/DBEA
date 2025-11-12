@@ -1,5 +1,21 @@
 <template>
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Error Message Banner -->
+    <div v-if="errorMessage" class="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+          </svg>
+          <p class="font-medium">{{ errorMessage }}</p>
+        </div>
+        <button @click="errorMessage = ''" class="text-red-700 hover:text-red-900">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+      </div>
+    </div>
     <!-- Shared Wallet Overview -->
     <div class="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-8 text-white shadow-xl mb-8">
       <div class="flex justify-between items-start mb-6">
@@ -50,15 +66,16 @@
             @click="openModal">Add Member</button>
 
           <ModalComponent v-if="showModal" :modal-title="'Add User to Wallet'" @close="closeModal">
-            <form @submit.prevent="addMember" class="space-y-4">
+            <form @submit.prevent="handleAddMember" class="space-y-4">
               <label class="block text-sm font-medium">
                 User Account ID:
-                <select v-model="newUserID" class="block w-full mt-2 p-2 border rounded text-black" required>
-                  <option disabled value="">-- Select User --</option>
-                  <option v-for="user in availableUsers" :key="user.AccountId" :value="user.AccountId">
-                    {{ user.FullName }}: {{ user.AccountId }}
-                  </option>
-                </select>
+                <input
+                  v-model="newUserID"
+                  type="text"
+                  placeholder="Enter Account ID"
+                  class="block w-full mt-2 p-2 border rounded text-black"
+                  required
+                />
               </label>
               <div class="flex gap-3 mt-6">
                 <button type="submit"
@@ -202,6 +219,7 @@ export default {
       showModal: false,
       newUserID: '',
       currentAccount: getAccountId(),
+      errorMessage: '',
 
     }
   },
@@ -220,10 +238,17 @@ export default {
     toggleSharedBalance() {
       this.sharedBalanceVisible = !this.sharedBalanceVisible
     },
-    openModal() { this.showModal = true; },
-    closeModal() { this.showModal = false; },
+    openModal() { 
+      this.errorMessage = "";
+      this.showModal = true; 
+    },
+    closeModal() { 
+      this.showModal = false; 
+      // Keep error message visible after closing modal
+    },
 
-    addMember() {
+    handleAddMember() {
+      this.errorMessage = "";
       addMember(this.walletId, this.newUserID, "Member", this.currentAccount)
         .then(() => {
           this.closeModal();
@@ -231,10 +256,17 @@ export default {
         })
         .catch(error => {
           console.error("Add Member failed:", error);
-          if (error.response) {
-            console.error("Backend error response:", error.response.data);
+          // Extract error message from response
+          // API returns: { Success: false, Message: "..." }
+          if (error && typeof error === 'object') {
+            // Prioritize Message field (capital M) as that's what the API returns
+            this.errorMessage = error.Message || error.message || error.error || error.Error || 
+                               (error.response && error.response.data && (error.response.data.Message || error.response.data.message || error.response.data.error || error.response.data.Error)) ||
+                               "Failed to add member. Please try again.";
+          } else if (typeof error === 'string') {
+            this.errorMessage = error;
           } else {
-            console.error("General JS error:", error);
+            this.errorMessage = "Failed to add member. Please try again.";
           }
         });
     },

@@ -17,15 +17,22 @@
               <span class="text-xl font-bold text-navy-900">MyBank</span>
             </div>
             <nav class="hidden md:flex gap-6">
-              <router-link to="/dashboard" class="text-navy-600 hover:text-navy-900 transition-colors pb-1"
-                exact-active-class="font-bold border-b-2 border-navy-600 text-navy-900">
+              <router-link 
+                to="/dashboard" 
+                class="text-navy-600 hover:text-navy-900 transition-colors pb-1"
+                active-class="font-bold border-b-2 border-navy-600 text-navy-900"
+                exact>
                 Dashboard
               </router-link>
-              <router-link to="/shared-wallet" class="text-navy-600 hover:text-navy-900 transition-colors pb-1"
+              <router-link 
+                to="/shared-wallet" 
+                class="text-navy-600 hover:text-navy-900 transition-colors pb-1"
                 active-class="font-bold border-b-2 border-navy-600 text-navy-900">
                 Shared Wallet
               </router-link>
-              <router-link to="/my-wallets" class="text-navy-600 hover:text-navy-900 transition-colors pb-1"
+              <router-link 
+                to="/my-wallets" 
+                class="text-navy-600 hover:text-navy-900 transition-colors pb-1"
                 active-class="font-bold border-b-2 border-navy-600 text-navy-900">
                 My Shared Wallets
               </router-link>

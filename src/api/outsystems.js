@@ -298,12 +298,22 @@ export async function addMember(walletId, accountId, role, invitedBy) {
     );
     console.log("Add member response:", response); // Correct place to log
 
+    // Check if the API returned Success: false
+    if (response.data && response.data.Success === false) {
+      // Throw the error data so it can be caught and displayed
+      throw response.data;
+    }
+
     return response.data;
   } catch (error) {
     console.error(
       "Add Member failed:",
       error.response ? error.response.data : error
     );
+    // If it's already the error data object, throw it as is
+    if (error.Success === false || error.Message) {
+      throw error;
+    }
     throw error.response ? error.response.data : error;
   }
 }
