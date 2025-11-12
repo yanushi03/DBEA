@@ -345,3 +345,21 @@ export async function getWalletList(AccountId) {
     throw err;
   }
 }
+
+export async function createWallet(walletRequest) {
+  try {
+    const response = await axios.post(
+      `${walletAPIUrl}/CreateWallet`,
+      walletRequest,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error creating wallet:", error.response ? error.response.data : error);
+    throw error.response ? error.response.data : error;
+  }
+}
