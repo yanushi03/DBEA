@@ -42,16 +42,20 @@ export async function fetchTransactionData(accountNum, startDate, endDate) {
   }
 }
 
-//--------------------- WITHDRAWAL FROM DEPOSIT ACCOUNT API---------------------------------//
-export async function topUpWallet(
+//--------------------- WITHDRAW FROM DEPOSIT ACC FUNCTION ---------------------------------//
+export async function withdrawFromDeposit(
   customerId,
   accountId,
-  walletId,
   amount,
   narrative
 ) {
-  // Step 1: Withdraw from deposit account
-  const withdrawDepositAcc = `${apiUrl}/account/${customerId}/WithdrawCash`;
+  if (!customerId || !accountId || !amount) {
+    return {
+      success: false,
+      message: "Missing required parameters for withdrawal.",
+    };
+  }
+
   const authHeader = {
     headers: {
       Authorization: "Basic " + btoa(`${username}:${password}`),
@@ -59,70 +63,55 @@ export async function topUpWallet(
     },
   };
 
+  const url = `${apiUrl}/account/${customerId}/WithdrawCash`;
+  const body = {
+    consumerId: customerId,
+    transactionId: "",
+    accountId,
+    amount,
+    narrative: narrative || "Wallet top-up",
+  };
+
   try {
-    const withdrawBody = {
-      consumerId: customerId,
-      transactionId: "",
-      accountId: accountId,
-      amount: amount,
-      narrative: narrative || "Wallet top-up",
-    };
-
-    const withdrawResponse = await axios.put(
-      withdrawDepositAcc,
-      withdrawBody,
-      authHeader
-    );
-
-    if (withdrawResponse.status !== 200) {
-      return {
-        success: false,
-        message: "Withdrawal failed from deposit account.",
-      };
-    }
-
-    // Step 2: Update wallet balance
-    const updateWalletAmount = `${walletAPIUrl}/wallet/${walletId}`;
-    const walletBody = { amount };
-
-    const walletResponse = await axios.put(updateWalletAmount, walletBody);
-
-    if (walletResponse.status !== 200) {
-      return { success: false, message: "Wallet top-up failed." };
-    }
-
-    // Step 3: Record wallet transaction
-    const createTransactionUrl = `${walletAPIUrl}/wallet/${walletId}/transactions`;
-    const transactionBody = {
-      type: "Top-up",
-      amount,
-      narrative: narrative || "Wallet top-up from deposit account",
-      transactionDate: new Date().toISOString(),
-    };
-
-    const transactionResponse = await axios.post(
-      createTransactionUrl,
-      transactionBody
-    );
-
-    if (
-      transactionResponse.status === 200 ||
-      transactionResponse.status === 201
-    ) {
-      return {
-        success: true,
-        message: "Wallet top-up successful and transaction recorded.",
-      };
+    const res = await axios.put(url, body, authHeader);
+    if (res.status === 200) {
+      return { success: true };
     } else {
-      console.warn("Top-up succeeded but failed to record transaction.");
-      return {
-        success: true,
-        message: "Wallet top-up successful, but transaction not saved.",
-      };
+      return { success: false, message: "Withdrawal failed." };
+    }
+  } catch (error) {
+    console.error("Withdrawal error:", error.response?.data || error.message);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+}
+//--------------------- END OF WITHDRAW FROM DEPOSIT ACC FUNCTION ---------------------------------//
+
+//--------------------- UPDATE WALLET BALANCE FUNCTION ------------------------------------------//
+export async function updateWalletBalance(walletId, balance) {
+  if (!walletId || balance === undefined) {
+    return { success: false, message: "Missing wallet ID or balance." };
+  }
+
+  const authHeader = {
+    headers: { "Content-Type": "application/json" },
+  };
+
+  const url = `${walletAPIUrl}/wallet/${walletId}`;
+  const body = { balance };
+
+  try {
+    const res = await axios.put(url, body, authHeader);
+    if (res.status === 200) {
+      return { success: true, data: res.data }; // include returned balance
+    } else {
+      return { success: false, message: "Wallet update failed." };
     }
   } catch (error) {
     console.error(
-      "Error during top-up:",
+      "Update wallet error:",
       error.response?.data || error.message
     );
     return {
@@ -131,11 +120,148 @@ export async function topUpWallet(
     };
   }
 }
-//--------------------- END OF WITHDRAWAL FROM DEPOSIT ACCOUNT API---------------------------------//
+//--------------------- END OF UPDATE WALLET BALANCE FUNCTION ------------------------------------------//
 
-//--------------------- GET WALLET DETAILS ---------------------------------//
-export async function getWalletDetails(walletId) {
-  const url = `${walletAPIUrl}/GetWalletDetails?WalletId=${walletId}`;
+//----------------------- RECORD WALLET TRANSACTION FUNCTION ------------------------------------------//
+export async function recordWalletTransaction(
+  walletId,
+  amount,
+  narrative,
+  performedBy
+) {
+  try {
+    if (!walletId || amount == null || !narrative || !performedBy) {
+      return { success: false, message: "Missing required parameters." };
+    }
+
+    const payload = {
+      Amount: parseFloat(amount),
+      Type: "Top-up",
+      Narrative: narrative,
+      TransactionDate: new Date().toISOString(),
+      PerformedBy: performedBy,
+    };
+
+    const response = await axios.post(
+      `${walletAPIUrl}/wallet/${walletId}/transactions`,
+      payload,
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    if (response.data && response.data.success) {
+      return { success: true, data: response.data };
+    } else {
+      return {
+        success: false,
+        message: response.data?.message || "Failed to record transaction.",
+      };
+    }
+  } catch (err) {
+    console.error(
+      "Failed to record transaction:",
+      err.response?.data || err.message || err
+    );
+    return {
+      success: false,
+      message:
+        err.response?.data?.message ||
+        err.message ||
+        "Error recording transaction.",
+    };
+  }
+}
+//----------------------- END OF RECORD WALLET TRANSACTION FUNCTION ------------------------------------------//
+
+//------------------- UPDATE WALLET MEMBER ACC CONTRIBUTION FUNC ------------------------------------//
+export async function updateWalletMemberContribution(walletId, userId, amount) {
+  if (!walletId || !userId || !amount) {
+    return { success: false, message: "Missing walletId, userId, or amount." };
+  }
+
+  const url = `${walletAPIUrl}/UpdateWalletMemberAmount?walletId=${walletId}&userId=${userId}&amount=${amount}`;
+
+  try {
+    const res = await axios.put(url, null, {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (res.status === 200) {
+      return { success: true, data: res.data };
+    } else {
+      return {
+        success: false,
+        message: "Failed to update wallet member contribution.",
+      };
+    }
+  } catch (error) {
+    console.error(
+      "Error updating wallet member contribution:",
+      error.response?.data || error.message
+    );
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+}
+//------------------- END OF UPDATE WALLET MEMBER ACC CONTRIBUTION FUNC ------------------------------------//
+
+//------------------------------------ TOP UP WALLET FUNCTION -------------------------------------//
+export async function topUpWallet(
+  customerId,
+  accountId,
+  walletId,
+  amount,
+  narrative,
+  performedBy
+) {
+  // Step 0: Withdraw must succeed first
+  const withdraw = await withdrawFromDeposit(
+    customerId,
+    accountId,
+    amount,
+    narrative
+  );
+  if (!withdraw.success) return withdraw;
+
+  try {
+    // Step 1: Update wallet, member contribution, and record transaction in parallel
+    const [updateWallet, updateMember, recordTx] = await Promise.all([
+      updateWalletBalance(walletId, amount),
+      updateWalletMemberContribution(walletId, accountId, amount),
+      recordWalletTransaction(walletId, amount, narrative, performedBy),
+    ]);
+
+    let txMessage = "Wallet top-up successful.";
+    if (!recordTx.success) {
+      txMessage = "Wallet top-up succeeded, but transaction was not recorded.";
+    }
+
+    return {
+      success: true,
+      message: txMessage,
+      updatedBalance: updateWallet?.data?.balance ?? null,
+    };
+  } catch (err) {
+    console.error("Top-up failed:", err);
+    return {
+      success: false,
+      message: "Failed to top up wallet due to server error.",
+    };
+  }
+}
+//------------------------------------ END OF TOP UP WALLET FUNCTION -------------------------------//
+
+//--------------------- GET WALLET TRANSACTIONS --------------------------------------//
+export async function getWalletTransactions(walletId) {
+  if (!walletId) {
+    console.warn("Missing walletId.");
+    return { success: false, data: [] };
+  }
+
+  const url = `${walletAPIUrl}/wallet/${walletId}/transactions`;
 
   try {
     const response = await axios.get(url, {
@@ -144,32 +270,35 @@ export async function getWalletDetails(walletId) {
       },
     });
 
-    if (response.status === 200) {
-      return {
-        success: true,
-        data: response.data,
-      };
+    if (response.status === 200 && Array.isArray(response.data)) {
+      return { success: true, data: response.data };
     } else {
-      return {
-        success: false,
-        message: "Failed to fetch wallet transactions.",
-        data: null,
-      };
+      return { success: false, data: [] };
     }
   } catch (error) {
-    console.error(
-      "Error fetching transactions:",
-      error.response?.data || error.message
+    return { success: false, data: [] };
+  }
+}
+//--------------------- END OF GET WALLET TRANSACTIONS --------------------------------------//
+
+//--------------------- GET WALLET DETAILS ---------------------------------//
+export async function getWallet(walletId) {
+  try {
+    const response = await axios.get(
+      `${walletAPIUrl}/GetWalletDetails?WalletId=${walletId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
     );
-    return {
-      success: false,
-      message: error.response?.data?.message || error.message,
-    };
+    return response.data;
+  } catch (err) {
+    console.error("Unable to fetch wallet because: " + err);
+    throw err;
   }
 }
 //--------------------- END OF GET WALLET DETAILS ---------------------------------//
-
-
 
 //--------------------- CUSTOMERS API---------------------------------//
 export async function loginUser(accountId, password) {
@@ -306,7 +435,6 @@ export async function getMySplitExpense(customerId) {
     throw error.response ? error.response.data : error;
   }
 }
-
 //--------------------- END OF EXPENSE API---------------------------------//
 
 //--------------------- NOTIFICATION API---------------------------------//
@@ -378,11 +506,11 @@ export async function sendNotifications({
   emailBody,
   receipientPhoneNumber,
   smsBody,
-  notificationType
+  notificationType,
 }) {
   const results = {
     email: null,
-    sms: null
+    sms: null,
   };
 
   const tasks = [];
@@ -391,20 +519,22 @@ export async function sendNotifications({
     tasks.push(
       sendEmailNotification(
         receipientEmail,
-        subject || '',
+        subject || "",
         emailBody,
-        notificationType || ''
-      ).then((response) => {
-        results.email = {
-          success: response?.Success !== false,
-          response
-        };
-      }).catch((error) => {
-        results.email = {
-          success: false,
-          error
-        };
-      })
+        notificationType || ""
+      )
+        .then((response) => {
+          results.email = {
+            success: response?.Success !== false,
+            response,
+          };
+        })
+        .catch((error) => {
+          results.email = {
+            success: false,
+            error,
+          };
+        })
     );
   }
 
@@ -413,18 +543,20 @@ export async function sendNotifications({
       sendSMSNotification(
         receipientPhoneNumber,
         smsBody,
-        notificationType || ''
-      ).then((response) => {
-        results.sms = {
-          success: response?.Success !== false,
-          response
-        };
-      }).catch((error) => {
-        results.sms = {
-          success: false,
-          error
-        };
-      })
+        notificationType || ""
+      )
+        .then((response) => {
+          results.sms = {
+            success: response?.Success !== false,
+            response,
+          };
+        })
+        .catch((error) => {
+          results.sms = {
+            success: false,
+            error,
+          };
+        })
     );
   }
 
@@ -439,17 +571,19 @@ export async function sendNotifications({
 export async function addMember(walletId, accountId, role, invitedBy) {
   try {
     console.log({
-      walletId, accountId, role, invitedByAccountId: invitedBy
+      walletId,
+      accountId,
+      role,
+      invitedByAccountId: invitedBy,
     });
     const response = await axios.post(
-      `${walletAPIUrl}/AddMemberToWallet`,  // URL
+      `${walletAPIUrl}/AddMemberToWallet`, // URL
       {
         WalletId: walletId,
         AccountId: accountId,
         Role: role,
-        InvitedByAccountId: invitedBy
-      },
-
+        InvitedByAccountId: invitedBy,
+      }
     );
     console.log("Add member response:", response); // Correct place to log
 
@@ -473,30 +607,19 @@ export async function addMember(walletId, accountId, role, invitedBy) {
   }
 }
 
-export async function getWallet(walletId) {
-  try {
-    const response = await axios.get(`${walletAPIUrl}/GetWalletDetails?WalletId=${walletId}`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-    return response.data;
-  } catch (err) {
-    console.error("Unable to fetch wallet because: " + err)
-    throw err;
-  }
-}
-
 export async function getWalletList(AccountId) {
   try {
-    const response = await axios.get(`${walletAPIUrl}/GetWalletListByAccId?AccountId=${AccountId}`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
+    const response = await axios.get(
+      `${walletAPIUrl}/GetWalletListByAccId?AccountId=${AccountId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
     return response.data;
   } catch (err) {
-    console.error("Unable to fetch wallet because: " + err)
+    console.error("Unable to fetch wallet because: " + err);
     throw err;
   }
 }
@@ -514,24 +637,30 @@ export async function createWallet(walletRequest) {
     );
     return response.data;
   } catch (error) {
-    console.error("Error creating wallet:", error.response ? error.response.data : error);
+    console.error(
+      "Error creating wallet:",
+      error.response ? error.response.data : error
+    );
     throw error.response ? error.response.data : error;
   }
 }
 
 export async function getCustomerByPhone(phoneNumber) {
   try {
-    const response = await axios.get(`${customerAPIUrl}/customer/${phoneNumber}/`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
+    const response = await axios.get(
+      `${customerAPIUrl}/customer/${phoneNumber}/`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
     return response.data;
   } catch (error) {
     if (error.response && error.response.status === 404) {
       return null;
     }
-    console.error("Failed to fetch customer by phone: " + error)
+    console.error("Failed to fetch customer by phone: " + error);
     throw error.response ? error.response.data : error;
   }
 }
