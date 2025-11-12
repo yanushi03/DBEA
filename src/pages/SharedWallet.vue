@@ -278,17 +278,20 @@ export default {
           this.walletId = data.GetWalletDetails.WalletId
           this.walletName = data.GetWalletDetails.Name
           // this.sharedBalance =data.GetWalletDetails.Balance
-          this.members = data.GetWalletDetails.Members.map(user => ({
-            initials: user.initials || getInitials(user.Fullname),
-            name: user.Fullname,
-            email: user.Email,
-            amount: user.amount || '-',
-            role: user.Role || 'Member',
-            bgClass: user.Role === 'Owner' ? 'bg-yellow-600' : (user.bgClass || 'bg-navy-600'),
-            roleBgClass: user.Role === 'Owner' ? 'bg-yellow-100' : (user.roleBgClass || 'bg-purple-100'),
-            roleTextClass: user.Role === 'Owner' ? 'text-yellow-700' : (user.roleTextClass || 'text-purple-700'),
-            accId: user.AccountId
-          }));
+          this.members = data.GetWalletDetails.Members.map(user => {
+            const amountContributed = user.AmountContributed ?? 0;
+            return {
+              initials: user.initials || getInitials(user.Fullname),
+              name: user.Fullname,
+              email: user.Email,
+              amount: this.formatCurrency(amountContributed),
+              role: user.Role || 'Member',
+              bgClass: user.Role === 'Owner' ? 'bg-yellow-600' : (user.bgClass || 'bg-navy-600'),
+              roleBgClass: user.Role === 'Owner' ? 'bg-yellow-100' : (user.roleBgClass || 'bg-purple-100'),
+              roleTextClass: user.Role === 'Owner' ? 'text-yellow-700' : (user.roleTextClass || 'text-purple-700'),
+              accId: user.AccountId
+            };
+          });
         })
 
     },
@@ -299,6 +302,13 @@ export default {
             this.accounts.push(data[index])
           }
         });
+    },
+    formatCurrency(amount) {
+      const numeric = Number(amount ?? 0);
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+      }).format(Number.isNaN(numeric) ? 0 : numeric);
     }
   }
 }
