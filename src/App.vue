@@ -49,7 +49,7 @@
             <div class="relative group">
               <!-- Profile Circle -->
               <div class="w-8 h-8 bg-navy-600 rounded-full flex items-center justify-center cursor-pointer">
-                <span class="text-white text-sm font-medium">{{ userInitials }}</span>
+                <span class="text-white text-sm font-medium">{{ authStore.initials }}</span>
               </div>
 
               <!-- Dropdown Menu -->
@@ -74,22 +74,33 @@
 </template>
 
 <script>
+import { authStore } from "./store/authStore";
 import { getUserInitials, logout } from './router/auth';
 
 export default {
   name: "App",
+  data() {
+    return {
+      authStore, // expose store to template
+    };
+  },
   computed: {
     isLoginPage() {
       return this.$route.name === "Login";
-    },
-    userInitials(){
-      return getUserInitials();
+    }
+  },
+  mounted() {
+    // restore state on page reload
+    const saved = getUserInitials();
+    if (saved) {
+      authStore.initials = saved;
+      authStore.isLoggedIn = true;
     }
   },
   methods: {
-    handleLogout(){
-      logout();               // clears sessionStorage
-      this.$router.push("/"); // redirect to login
+    handleLogout() {
+      logout();
+      this.$router.push("/");
     }
   }
 };

@@ -1,9 +1,15 @@
 // src/auth.js
+import { authStore } from "../store/authStore";
+
 export function setLoggedIn(initials, accountId, customerId) {
   sessionStorage.setItem("isLoggedIn", "true");
   sessionStorage.setItem("userInitials", initials);
   sessionStorage.setItem("accountId", accountId);
   sessionStorage.setItem("customerId", customerId);
+
+  // update reactive store
+  authStore.initials = initials;
+  authStore.isLoggedIn = true;
 }
 
 export function logout() {
