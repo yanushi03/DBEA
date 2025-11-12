@@ -1,14 +1,16 @@
 // src/auth.js
-export function setLoggedIn(initials, accountId) {
+export function setLoggedIn(initials, accountId, customerId) {
   sessionStorage.setItem("isLoggedIn", "true");
   sessionStorage.setItem("userInitials", initials);
   sessionStorage.setItem("accountId", accountId);
+  sessionStorage.setItem("customerId", customerId);
 }
 
 export function logout() {
   sessionStorage.removeItem("isLoggedIn");
   sessionStorage.removeItem("userInitials");
   sessionStorage.removeItem("accountId");
+  sessionStorage.removeItem("customerId");
 }
 
 export function isAuthenticated() {
