@@ -170,7 +170,7 @@
 
 <script>
 import ModalComponent from "./ModalComponent.vue";
-import { getUsers, addMember, getWallet, getCustomerByPhone } from "@/api/outsystems";
+import { getUsers, addMember, getWallet, getCustomerByPhone, GetWalletDetails, sendNotifications } from "@/api/outsystems";
 import { getAccountId } from "../router/auth";
 
 export default {
@@ -274,6 +274,8 @@ export default {
         }
 
         await addMember(this.walletId, customer.AccountId, "Member", this.currentAccount);
+        await this.notifyNewMember(customer, this.walletName);
+        
         this.closeModal();
         await this.loadWallet(this.walletId);
       } catch (error) {
@@ -344,6 +346,47 @@ export default {
         currency: "USD",
       }).format(Number.isNaN(numeric) ? 0 : numeric);
     },
+    getInviterName(){
+      if (this.ownerName && this.ownerName !== "N/A") {
+        return this.ownerName;
+      }
+      const currentMember = this.members.find(
+        (member) => member.accId === this.currentAccount
+      );
+      if (currentMember && currentMember.name) {
+        return currentMember.name;
+      }
+      return "Wallet Owner";
+    },
+    async notifyNewMember(customer, walletName){
+      const inviterName = this.getInviterName();
+
+      const recipientEmail = customer?.Email || customer?.email || null;
+      const recipientPhone = customer?.PhoneNumber || customer?.phoneNumber || customer?.MobileNumber || customer?.phone || null;
+      const recipientName = customer?.FullName || customer?.Name || null;
+
+      if (!recipientEmail && !recipientPhone) {
+        console.warn("No contact details available for new member")
+        return;
+    }
+
+    const subject = `You've been added to ${walletName}`;
+    const emailBody = `Hello ${recipientName},\n\nYou've been added to a shared wallet: "${walletName}" by ${inviterName}.\n\nPlease sign in to your account to review and manage your wallet.\n\nThank you`;
+    const smsBody = `Hello ${recipientName},\n\nYou've been added to a shared wallet: "${walletName}" by ${inviterName}.\nCheck your account to view details.`;
+
+    try{
+      await sendNotifications({
+        receipientEmail: recipientEmail,
+        subject,
+        emailBody,
+        receipientPhoneNumber: recipientPhone,
+        smsBody,
+        notificationType: "NEW_MEMBER_ADDED"
+      });
+    } catch (error) {
+      console.error("Failed to send notification to new member:", error);
+    }
+  }
   },
 };
 

@@ -335,8 +335,8 @@ export default {
 
       const walletIdLine = walletId ? ` with ID ${walletId}` : "";
       const subject = `Wallet created: ${walletName}`;
-      const emailBody = `Hello ${contact.name || "there"},\n\nYour wallet "${walletName}" has been created successfully${walletIdLine}.\n\nYou can now add members and start managing expenses.\n\nThank you`;
-      const smsBody = `Wallet "${walletName}" created successfully. ID: ${walletId}. \nPlease review in your account.`;
+      const emailBody = `Hello ${contact.name},\n\nYour wallet "${walletName}" has been created successfully!\n Wallet ID: ${walletIdLine}.\n\nYou can now add members and start managing expenses.\n\nThank you`;
+      const smsBody = `Hello ${contact.name}, \n\nYour wallet "${walletName}" has been created successfully! Wallet ID: ${walletId}.\nPlease review in your account.`;
 
       try {
         await sendNotifications({
