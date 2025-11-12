@@ -363,3 +363,20 @@ export async function createWallet(walletRequest) {
     throw error.response ? error.response.data : error;
   }
 }
+
+export async function getCustomerByPhone(phoneNumber) {
+  try {
+    const response = await axios.get(`${customerAPIUrl}/customer/${phoneNumber}/`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return null;
+    }
+    console.error("Failed to fetch customer by phone: " + error)
+    throw error.response ? error.response.data : error;
+  }
+}

@@ -76,14 +76,17 @@
           <ModalComponent v-if="showModal" :modal-title="'Add User to Wallet'" @close="closeModal">
             <form @submit.prevent="addMemberToWallet" class="space-y-4">
               <label class="block text-sm font-medium">
-                User Account ID:
+                User Phone Number:
                 <input
-                  v-model="newUserID"
-                  type="text"
-                  placeholder="Enter Account ID"
+                  v-model="newUserPhone"
+                  type="tel"
+                  placeholder="Enter Phone Number"
                   class="block w-full mt-2 p-2 border rounded text-black"
                   required
                 />
+                <div v-if="customerName" class="mt-2 text-sm text-green-600">
+                  {{ customerName }}
+                </div>
               </label>
               <div class="flex gap-3 mt-6">
                 <button type="submit"
@@ -167,7 +170,7 @@
 
 <script>
 import ModalComponent from "./ModalComponent.vue";
-import { getUsers, addMember, getWallet } from "@/api/outsystems";
+import { getUsers, addMember, getWallet, getCustomerByPhone } from "@/api/outsystems";
 import { getAccountId } from "../router/auth";
 
 export default {
@@ -183,7 +186,9 @@ export default {
       members: [],
       accounts: [],
       showModal: false,
-      newUserID: "",
+      newUserPhone: "",
+      lookupLoading: false,
+      customerName: null,
       currentAccount: getAccountId(),
       loadingWallet: false,
       error: null,
@@ -214,6 +219,13 @@ export default {
         }
       },
     },
+    newUserPhone(newVal) {
+      if (newVal && newVal.trim().length > 0) {
+        this.lookupName(newVal.trim());
+      } else {
+        this.customerName = null;
+      }
+    },
   },
   mounted() {
     this.fetchUsers();
@@ -231,16 +243,37 @@ export default {
     },
     closeModal() {
       this.showModal = false;
-      this.newUserID = "";
+      this.newUserPhone = "";
+      this.customerName = null;
       // Keep error message visible after closing modal
+    },
+    async lookupName(phoneNumber) {
+      try {
+        const customer = await getCustomerByPhone(phoneNumber);
+        this.customerName = customer?.FullName || null;
+      } catch (error) {
+        this.customerName = null;
+      }
     },
     async addMemberToWallet() {
       if (!this.walletId) {
         return;
       }
       this.errorMessage = "";
+      const trimmedPhone = this.newUserPhone.trim();
+      if (!trimmedPhone) {
+        this.errorMessage = "Please enter a valid phone number";
+        return;
+      }
+      this.lookupLoading = true;
       try {
-        await addMember(this.walletId, this.newUserID, "Member", this.currentAccount);
+        const customer = await getCustomerByPhone(trimmedPhone);
+        if (!customer||!customer.AccountId) {
+          this.errorMessage = "User not found";
+          return;
+        }
+
+        await addMember(this.walletId, customer.AccountId, "Member", this.currentAccount);
         this.closeModal();
         await this.loadWallet(this.walletId);
       } catch (error) {
@@ -257,6 +290,8 @@ export default {
         } else {
           this.errorMessage = "Failed to add member. Please try again.";
         }
+      } finally {
+        this.lookupLoading = false;
       }
     },
     async loadWallet(id) {
