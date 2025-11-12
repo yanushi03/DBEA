@@ -70,6 +70,7 @@ export default {
   data() {
     return {
       accountId: "",
+      customerId: "",
       password: "",
       error: "",
       loading: false,
@@ -84,7 +85,7 @@ export default {
         const initials = data.CustomerDetails.FullName.split(" ")
           .map((namePart) => namePart[0].toUpperCase())
           .join("");
-        setLoggedIn(initials, data.CustomerDetails.AccountId); // set logged in to true
+        setLoggedIn(initials, data.CustomerDetails.AccountId, data.CustomerDetails.CustomerId); // set logged in to true
         this.$router.push("/dashboard");
       } catch (err) {
         this.error = "Invalid account ID or password.";
