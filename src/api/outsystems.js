@@ -1,4 +1,4 @@
-import axios from 'axios'; // Add this at the top
+import axios from "axios"; // Add this at the top
 
 // get from OutSystem API with all the authentications
 const apiUrl = process.env.VUE_APP_API_URL;
@@ -7,13 +7,13 @@ const password = process.env.VUE_APP_API_PASSWORD;
 // Basic Auth
 const basicAuth = btoa(`${username}:${password}`);
 
-//get customers service API url
+// Customer service API url
 const customerAPIUrl = process.env.VUE_APP_CUSTOMER_SERVICE_API_URL;
 
 // Notification service API url
 const notificationAPIUrl = process.env.VUE_APP_NOTIFICATION_SERVICE_API_URL;
 
-//Expense service API url
+// Expense service API url
 const expenseAPIUrl = process.env.VUE_APP_EXPENSE_SERVICE_API_URL;
 
 // Wallet Service API URL
@@ -25,23 +25,153 @@ export async function fetchTransactionData(accountNum, startDate, endDate) {
     PageNo: 1,
     PageSize: 50,
     StartDate: startDate,
-    EndDate: endDate
+    EndDate: endDate,
   });
   const transactionURL = `${apiUrl}/Account/${accountNum}/transactions?${params.toString()}`;
 
   try {
     const response = await axios.get(transactionURL, {
       headers: {
-        "Authorization": `Basic ${basicAuth}`,
-        "Content-Type": "application/json"
-      }
-    })
+        Authorization: `Basic ${basicAuth}`,
+        "Content-Type": "application/json",
+      },
+    });
     return response.data;
   } catch (error) {
-    throw error
+    throw error;
   }
 }
 
+//--------------------- WITHDRAWAL FROM DEPOSIT ACCOUNT API---------------------------------//
+export async function topUpWallet(
+  customerId,
+  accountId,
+  walletId,
+  amount,
+  narrative
+) {
+  // Step 1: Withdraw from deposit account
+  const withdrawDepositAcc = `${apiUrl}/account/${customerId}/WithdrawCash`;
+  const authHeader = {
+    headers: {
+      Authorization: "Basic " + btoa(`${username}:${password}`),
+      "Content-Type": "application/json",
+    },
+  };
+
+  try {
+    const withdrawBody = {
+      consumerId: customerId,
+      transactionId: "",
+      accountId: accountId,
+      amount: amount,
+      narrative: narrative || "Wallet top-up",
+    };
+
+    const withdrawResponse = await axios.put(
+      withdrawDepositAcc,
+      withdrawBody,
+      authHeader
+    );
+
+    if (withdrawResponse.status !== 200) {
+      return {
+        success: false,
+        message: "Withdrawal failed from deposit account.",
+      };
+    }
+
+    // Step 2: Update wallet balance
+    const updateWalletAmount = `${walletAPIUrl}/wallet/${walletId}`;
+    const walletBody = { amount };
+
+    const walletResponse = await axios.put(updateWalletAmount, walletBody);
+
+    if (walletResponse.status !== 200) {
+      return { success: false, message: "Wallet top-up failed." };
+    }
+
+    // Step 3: Record wallet transaction
+    const createTransactionUrl = `${walletAPIUrl}/wallet/${walletId}/transactions`;
+    const transactionBody = {
+      type: "Top-up",
+      amount,
+      narrative: narrative || "Wallet top-up from deposit account",
+      transactionDate: new Date().toISOString(),
+    };
+
+    const transactionResponse = await axios.post(
+      createTransactionUrl,
+      transactionBody
+    );
+
+    if (
+      transactionResponse.status === 200 ||
+      transactionResponse.status === 201
+    ) {
+      return {
+        success: true,
+        message: "Wallet top-up successful and transaction recorded.",
+      };
+    } else {
+      console.warn("Top-up succeeded but failed to record transaction.");
+      return {
+        success: true,
+        message: "Wallet top-up successful, but transaction not saved.",
+      };
+    }
+  } catch (error) {
+    console.error(
+      "Error during top-up:",
+      error.response?.data || error.message
+    );
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+}
+//--------------------- END OF WITHDRAWAL FROM DEPOSIT ACCOUNT API---------------------------------//
+
+//--------------------- GET WALLET DETAILS ---------------------------------//
+export async function getWalletTransactions(walletId) {
+  const url = `${walletAPIUrl}/GetWalletDetails?WalletId=${walletId}`;
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (response.status === 200) {
+      return {
+        success: true,
+        data: response.data,
+      };
+    } else {
+      return {
+        success: false,
+        message: "Failed to fetch wallet transactions.",
+        data: null,
+      };
+    }
+  } catch (error) {
+    console.error(
+      "Error fetching transactions:",
+      error.response?.data || error.message
+    );
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message,
+    };
+  }
+}
+//--------------------- END OF GET WALLET DETAILS ---------------------------------//
+
+
+
+//--------------------- CUSTOMERS API---------------------------------//
 export async function loginUser(accountId, password) {
   try {
     const response = await axios.post(
@@ -68,13 +198,15 @@ export async function loginUser(accountId, password) {
 
 export async function getAccountDetails(accountId) {
   try {
-    const response = await axios.get(`${customerAPIUrl}/customers/${accountId}`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
+    const response = await axios.get(
+      `${customerAPIUrl}/customers/${accountId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
     return response.data;
-
   } catch (err) {
     console.error("Unable to fetch details because: " + err);
     throw err;
@@ -87,24 +219,10 @@ export async function getUsers() {
       headers: {
         "Content-Type": "application/json",
       },
-    })
+    });
     return response.data;
   } catch (err) {
-    console.error("Unable to fetch all users because: " + err)
-    throw err;
-  }
-}
-
-export async function getAccountBalance(customerId, accountId) {
-  try {
-    const response = await axios.get(`${transactionURL}/account/${customerId}/${accountId}/balance`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-    return response.data;
-  } catch (err) {
-    console.error("Unable to fetch all users because: " + err)
+    console.error("Unable to fetch all users because: " + err);
     throw err;
   }
 }
@@ -128,7 +246,26 @@ export async function checkPhoneNumberExists(phoneNumber) {
     throw error;
   }
 }
+//---------------------END OF CUSTOMERS API---------------------------------//
 
+export async function getAccountBalance(customerId, accountId) {
+  try {
+    const response = await axios.get(
+      `${transactionURL}/account/${customerId}/${accountId}/balance`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (err) {
+    console.error("Unable to fetch all users because: " + err);
+    throw err;
+  }
+}
+
+//--------------------- EXPENSE API---------------------------------//
 export async function createExpense(expenseRequest) {
   try {
     const response = await axios.post(
@@ -142,7 +279,10 @@ export async function createExpense(expenseRequest) {
     );
     return response.data;
   } catch (error) {
-    console.error('Error creating expense:', error.response ? error.response.data : error);
+    console.error(
+      "Error creating expense:",
+      error.response ? error.response.data : error
+    );
     throw error.response ? error.response.data : error;
   }
 }
@@ -159,13 +299,24 @@ export async function getMySplitExpense(customerId) {
     );
     return response.data;
   } catch (error) {
-    console.error('Error fetching split expenses:', error.response ? error.response.data : error);
+    console.error(
+      "Error fetching split expenses:",
+      error.response ? error.response.data : error
+    );
     throw error.response ? error.response.data : error;
   }
 }
 
+//--------------------- END OF EXPENSE API---------------------------------//
+
+//--------------------- NOTIFICATION API---------------------------------//
 // Send Email Notification
-export async function sendEmailNotification(receipientEmail, subject, messageBody, notificationType) {
+export async function sendEmailNotification(
+  receipientEmail,
+  subject,
+  messageBody,
+  notificationType
+) {
   try {
     const response = await axios.post(
       `${notificationAPIUrl}/SendEmailNotification`,
@@ -173,7 +324,7 @@ export async function sendEmailNotification(receipientEmail, subject, messageBod
         receipientEmail,
         subject,
         messageBody,
-        notificationType
+        notificationType,
       },
       {
         headers: {
@@ -192,14 +343,18 @@ export async function sendEmailNotification(receipientEmail, subject, messageBod
 }
 
 //Send SMS Notification
-export async function sendSMSNotification(receipientPhoneNumber, messageBody, notificationType) {
+export async function sendSMSNotification(
+  receipientPhoneNumber,
+  messageBody,
+  notificationType
+) {
   try {
     const response = await axios.post(
       `${notificationAPIUrl}/SendSMSNotification`,
       {
         receipientPhoneNumber,
         messageBody,
-        notificationType
+        notificationType,
       },
       {
         headers: {
