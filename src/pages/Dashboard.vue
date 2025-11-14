@@ -338,12 +338,12 @@
                       <div class="flex items-center gap-2">
                         <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                           <span class="text-white text-xs font-medium">
-                            {{ (split.MemberName || split.MemberId || 'Unknown').charAt(0).toUpperCase() }}
+                            {{ (split.MemberName || 'Unknown').charAt(0).toUpperCase() }}
                           </span>
                         </div>
                         <div>
                           <p class="font-medium text-navy-900 text-sm">
-                            {{ split.MemberName || split.MemberId || 'Unknown' }}
+                            {{ split.MemberName || 'Unknown' }}
                           </p>
                           <p class="text-xs text-navy-500">{{ (split.SplitPercentage || split.Percentage || 0).toFixed(1) }}%</p>
                         </div>
@@ -382,7 +382,7 @@
                 </div>
                 <div>
                   <p class="text-navy-500">Paid By</p>
-                  <p class="text-navy-900 font-medium">{{ expense.PaidByMemberName || expense.PaidByMemberId || 'N/A' }}</p>
+                  <p class="text-navy-900 font-medium">{{ expense.PaidByMemberName || 'N/A' }}</p>
                 </div>
                 <div>
                   <p class="text-navy-500">Created</p>
@@ -418,7 +418,7 @@
 import { fetchTransactionData, getAccountDetails as fetchAccountDetails, fetchMonthlyTransactionData, createExpense, getMySplitExpense, sendNotifications } from "@/api/outsystems";
 import { formatDate } from "../utils/date";
 import { getAccountId } from "../router/auth";
-import { formatIdForOutSystems } from "../utils/idFormatter";
+import { addLeadingZeros } from "../utils/idFormatter";
 import SplitExpenseModal from "./SplitExpenseModal.vue";
 import PaySplitExpenseModal from "./PaySplitExpenseModal.vue";
 
@@ -589,9 +589,8 @@ export default {
           return;
         }
 
-        // OutSystems stores IDs as numbers (without leading zeros)
-        // Format the ID to remove leading zeros
-        paidByMemberId = formatIdForOutSystems(paidByMemberId);
+        // Standardize customer IDs to include leading zeros (10 digits)
+        paidByMemberId = addLeadingZeros(paidByMemberId, 10);
 
         // Build SplitDetails array
         const splitDetails = splitData.phoneNumbers.map(phone => {
@@ -601,8 +600,8 @@ export default {
             return null;
           }
           
-          // Remove leading zeros to match OutSystems format
-          memberId = formatIdForOutSystems(memberId);
+          // Standardize customer IDs to include leading zeros (10 digits)
+          memberId = addLeadingZeros(memberId, 10);
           
           const percentage = (1 / splitData.totalPeople) * 100; // Equal split percentage
           
@@ -867,9 +866,8 @@ export default {
                         this.accountDetails?.Id || 
                         this.currentAccNumber;
         
-        // OutSystems stores IDs as numbers (without leading zeros)
-        // Format the ID to remove leading zeros (e.g., "0000002583" -> "2583")
-        customerId = formatIdForOutSystems(customerId);
+        // Standardize customer ID to include leading zeros (10 digits)
+        customerId = addLeadingZeros(customerId, 10);
         
         console.log('Fetching split expenses for CustomerId:', customerId);
         console.log('Account Details:', this.accountDetails);
@@ -892,8 +890,8 @@ export default {
               // Look for transaction in allTransactions or transactions array
               const bankTransactionId = expense.BankTransactionId;
               if (bankTransactionId) {
-                // Remove leading zeros from BankTransactionId for comparison
-                const normalizedBankId = formatIdForOutSystems(bankTransactionId);
+                // Standardize BankTransactionId for comparison
+                const normalizedBankId = addLeadingZeros(bankTransactionId, 10);
                 
                 // Helper function to find transaction in an array
                 const findTransactionInArray = (txArray) => {
@@ -903,7 +901,7 @@ export default {
                     if (!txId) return false;
                     
                     // Normalize both IDs for comparison
-                    const normalizedTxId = formatIdForOutSystems(txId);
+                    const normalizedTxId = addLeadingZeros(txId, 10);
                     return normalizedTxId === normalizedBankId || 
                            txId.toString() === bankTransactionId.toString() ||
                            normalizedTxId === bankTransactionId.toString();
@@ -967,7 +965,7 @@ export default {
               
               return {
                 MemberId: split.MemberId,
-                MemberName: null, // Will be populated if available from API
+                MemberName: split.MemberName || null, // Use MemberName from API response
                 SplitAmount: split.SplitAmount,
                 SplitPercentage: percentage,
                 IsPaid: split.IsPaid,
@@ -982,7 +980,7 @@ export default {
               : expense.OriginalAmount,
             // Set default values for fields not in API response
             PaidByMemberId: null,
-            PaidByMemberName: null,
+            PaidByMemberName: expense.PaidByName || null, // Use PaidByName from API response
             CreatedDate: expense.ExpenseDate,
             ModifiedDate: expense.ExpenseDate,
             IsActive: true,
