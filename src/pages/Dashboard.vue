@@ -933,12 +933,10 @@ export default {
 
       try {
         this.isTransferring = true;
-        const narrative = `Transfer to ${recipient.FullName}`;
         await transferFunds({
           accountIdFrom: this.currentAccNumber,
           consumerIdFrom: this.accountDetails.CustomerId,
           amount: amountVal,
-          narrative: narrative,
           phone: Number(this.transferRecipient)
         });
         this.closeTransferModal();
