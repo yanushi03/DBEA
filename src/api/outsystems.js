@@ -686,3 +686,22 @@ export async function transferFunds(transferReq) {
     throw err;
   }
 }
+
+export async function splitTransferFunds(transferReq) {
+  try{
+    const response = await axios.post(
+      `${fundTransferUrl}/SplitExpenseTransferFunds`,
+      transferReq,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data
+  }
+  catch(err){
+    console.error("Unable to transfer funds because: " + err);
+    throw err;
+  }
+}

@@ -58,7 +58,6 @@
               <span class="text-navy-300 text-sm">Income</span>
             </div>
             <p class="text-2xl font-bold">{{ income }}</p>
-            <p class="text-green-400 text-sm mt-1">+12.5% from last month</p>
           </div>
           <div class="bg-navy-700/50 rounded-xl p-4 backdrop-blur-sm">
             <div class="flex items-center gap-2 mb-2">
@@ -71,7 +70,6 @@
               <span class="text-navy-300 text-sm">Expenses</span>
             </div>
             <p class="text-2xl font-bold">{{ expenses }}</p>
-            <p class="text-red-400 text-sm mt-1">+5.2% from last month</p>
           </div>
         </div>
       </div>
@@ -454,7 +452,7 @@
 </template>
 
 <script>
-import { fetchTransactionData, getAccountDetails as fetchAccountDetails, transferFunds, createExpense, getMySplitExpense, sendNotifications } from "@/api/outsystems";
+import { fetchTransactionData, getAccountDetails as fetchAccountDetails, transferFunds, createExpense, getMySplitExpense, sendNotifications, splitTransferFunds } from "@/api/outsystems";
 import { formatDate } from "../utils/date";
 import { getAccountId } from "../router/auth";
 import { addLeadingZeros } from "../utils/idFormatter";
@@ -619,7 +617,14 @@ export default {
       this.showPaySplitExpenseModal = false;
     },
 
-    handleSelectExpense(expense) {
+    async handleSelectExpense(expense) {
+
+      // ======================================== UPDATE THIS =============================================================================
+      await splitTransferFunds({
+        consumerIdFrom: this.accountDetails.CustomerId,
+        amount: expense.SplitAmount,
+        consumerIdTo:"0000002583"//expense.PaidByMemberId
+      });
       console.log('Selected expense to pay:', expense);
       this.closePaySplitExpenseModal();
     },
