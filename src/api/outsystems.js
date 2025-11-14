@@ -19,11 +19,14 @@ const expenseAPIUrl = process.env.VUE_APP_EXPENSE_SERVICE_API_URL;
 // Wallet Service API URL
 const walletAPIUrl = process.env.VUE_APP_WALLET_SERVICE_API_URL;
 
+// Fund Transfer Service API URL
+const fundTransferUrl = process.env.VUE_APP_FUNDTRANSFER_SERVICE_API_URL
+
 export async function fetchTransactionData(accountNum, startDate, endDate) {
   // Create query parameters using URLSearchParams
   const params = new URLSearchParams({
     PageNo: 1,
-    PageSize: 50,
+    PageSize: 100000,
     StartDate: startDate,
     EndDate: endDate,
   });
@@ -662,5 +665,24 @@ export async function getCustomerByPhone(phoneNumber) {
     }
     console.error("Failed to fetch customer by phone: " + error);
     throw error.response ? error.response.data : error;
+  }
+}
+
+export async function transferFunds(transferReq) {
+  try{
+    const response = await axios.post(
+      `${fundTransferUrl}/TransferFunds`,
+      transferReq,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data
+  }
+  catch(err){
+    console.error("Unable to transfer funds because: " + err);
+    throw err;
   }
 }

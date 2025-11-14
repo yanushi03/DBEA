@@ -38,6 +38,12 @@
           <div class="text-right">
             <p class="text-navy-300 text-sm mb-1">Account Number</p>
             <p class="text-lg font-mono">{{ currentAccNumber }}</p>
+            <div class="mt-3 flex items-center justify-end gap-2">
+              <button @click="openTransferPrompt"
+                class="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm">
+                Transfer
+              </button>
+            </div>
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -254,12 +260,12 @@
               </h2>
               <p class="text-sm text-navy-500 mt-1">View all transactions you've split with others</p>
             </div>
-            <button
-              @click="openPaySplitExpenseModal"
-              class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
-            >
+            <button @click="openPaySplitExpenseModal"
+              class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                </path>
               </svg>
               Pay for Split Expense
             </button>
@@ -276,7 +282,9 @@
           <!-- Empty State -->
           <div v-else-if="splitExpenses.length === 0" class="p-6 text-center">
             <svg class="w-16 h-16 text-navy-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z">
+              </path>
             </svg>
             <p class="text-navy-500 font-medium">No split expenses found</p>
             <p class="text-sm text-navy-400 mt-1">Split expenses will appear here once you create them</p>
@@ -284,18 +292,22 @@
 
           <!-- Split Expenses List -->
           <div v-else>
-            <div v-for="(expense, idx) in splitExpenses" :key="idx" class="bg-gray-50 mb-8 p-6 hover:bg-navy-50 transition-colors">
+            <div v-for="(expense, idx) in splitExpenses" :key="idx"
+              class="bg-gray-50 mb-8 p-6 hover:bg-navy-50 transition-colors">
               <div class="flex items-start justify-between">
                 <div class="flex-1">
                   <div class="flex items-center gap-3 mb-2">
                     <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                       <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z">
+                        </path>
                       </svg>
                     </div>
                     <div class="flex-1">
                       <p class="font-semibold text-navy-900 text-lg">
-                        {{ expense.Description || expense.Notes?.replace('Split expense for transaction: ', '') || 'Split Expense' }}
+                        {{ expense.Description || expense.Notes?.replace('Split expense for transaction: ', '') ||
+                          'Split Expense' }}
                       </p>
                       <p class="text-sm text-navy-500 mt-1">
                         {{ formatDate(expense.ExpenseDate) }}
@@ -308,13 +320,13 @@
 
                   <!-- Payment Status Badge -->
                   <div class="flex items-center gap-2 mt-3">
-                    <span :class="getPaymentStatusClass(expense.PaymentStatus)" 
-                          class="px-3 py-1 rounded-full text-xs font-medium">
+                    <span :class="getPaymentStatusClass(expense.PaymentStatus)"
+                      class="px-3 py-1 rounded-full text-xs font-medium">
                       {{ expense.PaymentStatus || 'Pending' }}
                     </span>
-                    <span v-if="expense.IsActive !== undefined" 
-                          :class="expense.IsActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'"
-                          class="px-3 py-1 rounded-full text-xs font-medium">
+                    <span v-if="expense.IsActive !== undefined"
+                      :class="expense.IsActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'"
+                      class="px-3 py-1 rounded-full text-xs font-medium">
                       {{ expense.IsActive ? 'Active' : 'Inactive' }}
                     </span>
                   </div>
@@ -329,11 +341,12 @@
               </div>
 
               <!-- Split Details - Who it was split with -->
-              <div v-if="expense.SplitDetails && expense.SplitDetails.length > 0" class="mt-4 pt-4 border-t border-navy-100">
+              <div v-if="expense.SplitDetails && expense.SplitDetails.length > 0"
+                class="mt-4 pt-4 border-t border-navy-100">
                 <p class="text-sm font-medium text-navy-700 mb-3">Split with:</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <div v-for="(split, splitIdx) in expense.SplitDetails" :key="splitIdx" 
-                       class="p-3 bg-navy-50 rounded-lg border border-navy-200">
+                  <div v-for="(split, splitIdx) in expense.SplitDetails" :key="splitIdx"
+                    class="p-3 bg-navy-50 rounded-lg border border-navy-200">
                     <div class="flex items-center justify-between mb-2">
                       <div class="flex items-center gap-2">
                         <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
@@ -345,27 +358,33 @@
                           <p class="font-medium text-navy-900 text-sm">
                             {{ split.MemberName || 'Unknown' }}
                           </p>
-                          <p class="text-xs text-navy-500">{{ (split.SplitPercentage || split.Percentage || 0).toFixed(1) }}%</p>
+                          <p class="text-xs text-navy-500">{{ (split.SplitPercentage || split.Percentage ||
+                            0).toFixed(1) }}%
+                          </p>
                         </div>
                       </div>
-                      <span :class="getPaymentStatusClass(split.PaymentStatus || (split.IsPaid ? 'Paid' : 'Pending'))" 
-                            class="px-2 py-1 rounded text-xs font-medium">
+                      <span :class="getPaymentStatusClass(split.PaymentStatus || (split.IsPaid ? 'Paid' : 'Pending'))"
+                        class="px-2 py-1 rounded text-xs font-medium">
                         {{ split.PaymentStatus || (split.IsPaid ? 'Paid' : 'Pending') }}
                       </span>
                     </div>
-                    <p class="text-lg font-bold text-navy-900">${{ parseFloat(split.SplitAmount || split.Amount || 0).toFixed(2) }}</p>
+                    <p class="text-lg font-bold text-navy-900">${{ parseFloat(split.SplitAmount || split.Amount ||
+                      0).toFixed(2) }}</p>
                   </div>
                 </div>
                 <div class="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div class="flex justify-between items-center">
                     <span class="text-sm font-medium text-navy-700">Split Amount (per person):</span>
                     <span class="text-lg font-bold text-blue-600">
-                      ${{ parseFloat(expense.SplitAmount || (expense.TotalAmount / expense.TotalPeople) || 0).toFixed(2) }}
+                      ${{ parseFloat(expense.SplitAmount || (expense.TotalAmount / expense.TotalPeople) || 0).toFixed(2)
+                      }}
                     </span>
                   </div>
                   <div class="flex justify-between items-center mt-1">
                     <span class="text-xs text-navy-500">Total People:</span>
-                    <span class="text-xs font-medium text-navy-700">{{ expense.TotalPeople || expense.SplitDetails.length }} people</span>
+                    <span class="text-xs font-medium text-navy-700">{{ expense.TotalPeople ||
+                      expense.SplitDetails.length }}
+                      people</span>
                   </div>
                 </div>
               </div>
@@ -378,7 +397,8 @@
                 </div>
                 <div>
                   <p class="text-navy-500">Transaction ID</p>
-                  <p class="text-navy-900 font-medium">{{ expense.TransactionId || expense.BankTransactionId || 'N/A' }}</p>
+                  <p class="text-navy-900 font-medium">{{ expense.TransactionId || expense.BankTransactionId || 'N/A' }}
+                  </p>
                 </div>
                 <div>
                   <p class="text-navy-500">Paid By</p>
@@ -395,37 +415,59 @@
       </div>
     </main>
 
+    <!-- Transfer Modal -->
+    <ModalComponent v-if="showTransferModal" modalTitle="Transfer Funds">
+      <div class="space-y-3">
+        <div>
+          <label class="text-sm font-medium text-navy-600">Recipient Phone Number</label>
+          <input v-model="transferRecipient" type="number" class="w-full mt-1 border border-navy-200 rounded px-3 py-2"
+            placeholder="Enter recipient phone number" />
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-navy-600">Amount</label>
+          <input v-model="transferAmount" type="text" class="w-full mt-1 border border-navy-200 rounded px-3 py-2"
+            placeholder="0.00" />
+        </div>
+
+        <div v-if="transferError" class="text-sm text-red-500">{{ transferError }}</div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button @click="closeTransferModal" class="px-4 py-2 rounded bg-gray-200 text-gray-700">Cancel</button>
+          <button @click="confirmTransfer" :disabled="isTransferring"
+            class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600">
+            <span v-if="!isTransferring">Confirm</span>
+            <span v-else>Processing...</span>
+          </button>
+        </div>
+      </div>
+    </ModalComponent>
+
     <!-- Split Expense Modal -->
-    <SplitExpenseModal
-      ref="splitExpenseModal"
-      :isVisible="showSplitModal"
-      :transaction="selectedTransaction"
-      @close="closeSplitModal"
-      @confirm-split="handleSplitConfirm"
-    />
+    <SplitExpenseModal ref="splitExpenseModal" :isVisible="showSplitModal" :transaction="selectedTransaction"
+      @close="closeSplitModal" @confirm-split="handleSplitConfirm" />
 
     <!-- Pay Split Expense Modal -->
-    <PaySplitExpenseModal
-      :isVisible="showPaySplitExpenseModal"
-      :splitExpenses="splitExpenses"
-      @close="closePaySplitExpenseModal"
-      @select-expense="handleSelectExpense"
-    />
+    <PaySplitExpenseModal :isVisible="showPaySplitExpenseModal" :splitExpenses="splitExpenses"
+      @close="closePaySplitExpenseModal" @select-expense="handleSelectExpense" />
   </div>
 </template>
 
 <script>
-import { fetchTransactionData, getAccountDetails as fetchAccountDetails, fetchMonthlyTransactionData, createExpense, getMySplitExpense, sendNotifications } from "@/api/outsystems";
+import { fetchTransactionData, getAccountDetails as fetchAccountDetails, transferFunds, createExpense, getMySplitExpense, sendNotifications } from "@/api/outsystems";
 import { formatDate } from "../utils/date";
 import { getAccountId } from "../router/auth";
 import { addLeadingZeros } from "../utils/idFormatter";
 import SplitExpenseModal from "./SplitExpenseModal.vue";
 import PaySplitExpenseModal from "./PaySplitExpenseModal.vue";
+import ModalComponent from "./ModalComponent.vue";
+import { getCustomerByPhone } from "../api/outsystems";
 
 export default {
   components: {
     SplitExpenseModal,
-    PaySplitExpenseModal
+    PaySplitExpenseModal,
+    ModalComponent
   },
   data() {
     const now = new Date();
@@ -456,6 +498,13 @@ export default {
       splitExpenses: [], // Store split expenses
       loadingSplitExpenses: false,
       showPaySplitExpenseModal: false,
+
+      // Transfer modal state
+      showTransferModal: false,
+      transferRecipient: '',
+      transferAmount: '',
+      transferError: null,
+      isTransferring: false,
     };
 
   },
@@ -466,7 +515,7 @@ export default {
         // console.log(data); //dont show on console
         this.balance = "$" + (data.Balance).toFixed(2);
         this.accountDetails = data; // Store account details for MemberId
-        
+
         // Log account details to help debug CustomerId
         console.log('Account Details loaded:', {
           AccountId: this.currentAccNumber,
@@ -599,12 +648,12 @@ export default {
             console.warn('Missing MemberId for phone number:', phone.number);
             return null;
           }
-          
+
           // Standardize customer IDs to include leading zeros (10 digits)
           memberId = addLeadingZeros(memberId, 10);
-          
+
           const percentage = (1 / splitData.totalPeople) * 100; // Equal split percentage
-          
+
           return {
             MemberId: memberId,
             Amount: splitData.numericSplitAmount,
@@ -665,15 +714,15 @@ export default {
 
         // Close modal
         this.closeSplitModal();
-        
+
         // Refresh split expenses if user is on that tab
         if (this.currentTab === 'splitExpenses') {
           this.fetchSplitExpenses();
         }
-        
+
         // Optionally refresh transaction data to show updated split info
         // this.fetchTransactionData(this.currentAccNumber, this.startDate, this.endDate);
-        
+
       } catch (error) {
         console.error('Error creating split expense:', error);
 
@@ -844,6 +893,63 @@ export default {
       this.balanceVisible = !this.balanceVisible;
     },
 
+    // Open transfer modal instead of browser prompts
+    async openTransferPrompt() {
+      this.transferRecipient = '';
+      this.transferAmount = '';
+      this.transferError = null;
+      this.showTransferModal = true;
+    },
+
+    closeTransferModal() {
+      this.showTransferModal = false;
+      this.transferRecipient = '';
+      this.transferAmount = '';
+      this.transferError = null;
+      this.isTransferring = false;
+    },
+
+    async confirmTransfer() {
+      this.transferError = null;
+
+      // Check user
+      const recipient = await getCustomerByPhone(Number(this.transferRecipient));
+
+      if (!recipient) {
+        this.transferError = 'Please enter a valid recipient phone number.';
+        return;
+      }
+
+      const amountVal = parseFloat((this.transferAmount || '').toString().replace(/[^0-9.]/g, ''));
+      if (isNaN(amountVal) || amountVal <= 0) {
+        this.transferError = 'Please enter a valid amount greater than 0.';
+        return;
+      }
+
+
+      const proceed = window.confirm(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName}?`);
+
+      if (!proceed) return;
+
+      try {
+        this.isTransferring = true;
+        const narrative = `Transfer to ${recipient.FullName}`;
+        await transferFunds({
+          accountIdFrom: this.currentAccNumber,
+          consumerIdFrom: this.accountDetails.CustomerId,
+          amount: amountVal,
+          narrative: narrative,
+          phone: Number(this.transferRecipient)
+        });
+        this.closeTransferModal();
+      } catch (err) {
+        console.error('Transfer failed:', err);
+        this.transferError = err?.message || 'Transfer failed. See console for details.';
+      } finally {
+        this.isTransferring = false;
+      }
+    },
+
     selectMonth(month) {
       this.currentMonth = month;
       const summary = this.getMonthSummary(month);
@@ -857,34 +963,34 @@ export default {
     },
 
     async fetchSplitExpenses() {
-      if (this.loadingSplitExpenses) return; 
-      
+      if (this.loadingSplitExpenses) return;
+
       this.loadingSplitExpenses = true;
       try {
         // Get CustomerId from account details, fallback to currentAccNumber
-        let customerId = this.accountDetails?.CustomerId || 
-                        this.accountDetails?.Id || 
-                        this.currentAccNumber;
-        
+        let customerId = this.accountDetails?.CustomerId ||
+          this.accountDetails?.Id ||
+          this.currentAccNumber;
+
         // Standardize customer ID to include leading zeros (10 digits)
         customerId = addLeadingZeros(customerId, 10);
-        
+
         console.log('Fetching split expenses for CustomerId:', customerId);
         console.log('Account Details:', this.accountDetails);
         console.log('Original CustomerId value:', this.accountDetails?.CustomerId || this.accountDetails?.Id || this.currentAccNumber);
-        
+
         const response = await getMySplitExpense(customerId);
-        
+
         console.log('API Response:', response);
         console.log('SplitExpenses array:', response?.SplitExpenses);
-        
+
         // Map the API response structure to frontend structure
         if (response && response.SplitExpenses && Array.isArray(response.SplitExpenses) && response.SplitExpenses.length > 0) {
           // Transform the response to match frontend expectations
           this.splitExpenses = response.SplitExpenses.map(expense => {
             // Try to find the original transaction to get its narrative/description
             let transactionDescription = expense.Description;
-            
+
             // If Description is empty, try to find the original transaction
             if (!transactionDescription || transactionDescription.trim() === '') {
               // Look for transaction in allTransactions or transactions array
@@ -892,28 +998,28 @@ export default {
               if (bankTransactionId) {
                 // Standardize BankTransactionId for comparison
                 const normalizedBankId = addLeadingZeros(bankTransactionId, 10);
-                
+
                 // Helper function to find transaction in an array
                 const findTransactionInArray = (txArray) => {
                   return txArray.find(tx => {
                     // Try multiple field names and formats
                     const txId = tx.transactionId || tx.id || tx.TransactionId || tx.transactionID;
                     if (!txId) return false;
-                    
+
                     // Normalize both IDs for comparison
                     const normalizedTxId = addLeadingZeros(txId, 10);
-                    return normalizedTxId === normalizedBankId || 
-                           txId.toString() === bankTransactionId.toString() ||
-                           normalizedTxId === bankTransactionId.toString();
+                    return normalizedTxId === normalizedBankId ||
+                      txId.toString() === bankTransactionId.toString() ||
+                      normalizedTxId === bankTransactionId.toString();
                   });
                 };
-                
+
                 // Search in allTransactions first (has all transactions), then in current transactions
                 let originalTransaction = findTransactionInArray(this.allTransactions);
                 if (!originalTransaction) {
                   originalTransaction = findTransactionInArray(this.transactions);
                 }
-                
+
                 if (originalTransaction) {
                   transactionDescription = originalTransaction.narrative || originalTransaction.description || originalTransaction.Description || '';
                   console.log('Found original transaction:', {
@@ -932,7 +1038,7 @@ export default {
                   }
                 }
               }
-              
+
               // If still empty, try to extract from Notes
               if (!transactionDescription || transactionDescription.trim() === '') {
                 if (expense.Notes) {
@@ -943,59 +1049,59 @@ export default {
                 }
               }
             }
-            
+
             return {
-            // Map basic expense fields
-            ExpenseId: expense.ExpenseId,
-            // Use the found transaction description, or fallback
-            Description: transactionDescription || 'Split Expense',
-            TotalAmount: expense.OriginalAmount, // Map OriginalAmount to TotalAmount
-            ExpenseDate: expense.ExpenseDate,
-            BankTransactionId: expense.BankTransactionId,
-            CategoryId: expense.CategoryId,
-            TransactionId: expense.BankTransactionId, // Use BankTransactionId as TransactionId
-            // Store original Notes for reference
-            Notes: expense.Notes || '',
-            // Map SplitWith to SplitDetails with additional fields
-            SplitDetails: (expense.SplitWith || []).map(split => {
-              // Calculate percentage: (SplitAmount / OriginalAmount) * 100
-              const percentage = expense.OriginalAmount > 0 
-                ? (split.SplitAmount / expense.OriginalAmount) * 100 
-                : 0;
-              
-              return {
-                MemberId: split.MemberId,
-                MemberName: split.MemberName || null, // Use MemberName from API response
-                SplitAmount: split.SplitAmount,
-                SplitPercentage: percentage,
-                IsPaid: split.IsPaid,
-                PaymentStatus: split.IsPaid ? 'Paid' : 'Pending', // Convert boolean to string
-                SplitType: 'Equal' // Default, adjust if API provides this
-              };
-            }),
-            // Calculate derived fields
-            TotalPeople: expense.SplitWith ? expense.SplitWith.length : 0,
-            SplitAmount: expense.SplitWith && expense.SplitWith.length > 0 
-              ? expense.OriginalAmount / expense.SplitWith.length 
-              : expense.OriginalAmount,
-            // Set default values for fields not in API response
-            PaidByMemberId: null,
-            PaidByMemberName: expense.PaidByName || null, // Use PaidByName from API response
-            CreatedDate: expense.ExpenseDate,
-            ModifiedDate: expense.ExpenseDate,
-            IsActive: true,
-            PaymentStatus: 'Pending',
-            CreatedByCustomerId: null,
-            ModifiedByCustomerId: null,
-            SplitType: 'Equal'
-          };
+              // Map basic expense fields
+              ExpenseId: expense.ExpenseId,
+              // Use the found transaction description, or fallback
+              Description: transactionDescription || 'Split Expense',
+              TotalAmount: expense.OriginalAmount, // Map OriginalAmount to TotalAmount
+              ExpenseDate: expense.ExpenseDate,
+              BankTransactionId: expense.BankTransactionId,
+              CategoryId: expense.CategoryId,
+              TransactionId: expense.BankTransactionId, // Use BankTransactionId as TransactionId
+              // Store original Notes for reference
+              Notes: expense.Notes || '',
+              // Map SplitWith to SplitDetails with additional fields
+              SplitDetails: (expense.SplitWith || []).map(split => {
+                // Calculate percentage: (SplitAmount / OriginalAmount) * 100
+                const percentage = expense.OriginalAmount > 0
+                  ? (split.SplitAmount / expense.OriginalAmount) * 100
+                  : 0;
+
+                return {
+                  MemberId: split.MemberId,
+                  MemberName: split.MemberName || null, // Use MemberName from API response
+                  SplitAmount: split.SplitAmount,
+                  SplitPercentage: percentage,
+                  IsPaid: split.IsPaid,
+                  PaymentStatus: split.IsPaid ? 'Paid' : 'Pending', // Convert boolean to string
+                  SplitType: 'Equal' // Default, adjust if API provides this
+                };
+              }),
+              // Calculate derived fields
+              TotalPeople: expense.SplitWith ? expense.SplitWith.length : 0,
+              SplitAmount: expense.SplitWith && expense.SplitWith.length > 0
+                ? expense.OriginalAmount / expense.SplitWith.length
+                : expense.OriginalAmount,
+              // Set default values for fields not in API response
+              PaidByMemberId: null,
+              PaidByMemberName: expense.PaidByName || null, // Use PaidByName from API response
+              CreatedDate: expense.ExpenseDate,
+              ModifiedDate: expense.ExpenseDate,
+              IsActive: true,
+              PaymentStatus: 'Pending',
+              CreatedByCustomerId: null,
+              ModifiedByCustomerId: null,
+              SplitType: 'Equal'
+            };
           });
-          
+
           console.log('Mapped split expenses:', this.splitExpenses);
         } else {
           console.warn('No split expenses found or empty array. Response:', response);
           this.splitExpenses = [];
-          
+
           // Show user-friendly message if response is successful but empty
           if (response && response.Success && (!response.SplitExpenses || response.SplitExpenses.length === 0)) {
             console.log('API returned success but no expenses found');
@@ -1018,7 +1124,7 @@ export default {
 
     getPaymentStatusClass(status) {
       if (!status) return 'bg-gray-100 text-gray-700';
-      
+
       const statusLower = status.toLowerCase();
       if (statusLower.includes('paid') || statusLower.includes('complete')) {
         return 'bg-green-100 text-green-700';
