@@ -67,12 +67,13 @@ export async function topUpWallet(topUpData) {
     const response = await axios.post(
       `${topupWalletUrl}/TopUpWallet`,
       {
-          CustomerId: topUpData.customerId,
-          AccountId: topUpData.accountId,
-          WalletId: topUpData.walletId,
-          Amount: parseFloat(topUpData.amount),
-          Narrative: topUpData.narrative,
-          PerformedBy: topUpData.performedBy,
+        CustomerId: topUpData.customerId,
+        AccountId: topUpData.accountId,
+        WalletId: topUpData.walletId,
+        Amount: parseFloat(topUpData.amount),
+        DepositAccNarrative: topUpData.depositAccNarrative,
+        Narrative: topUpData.narrative,
+        PerformedBy: topUpData.performedBy,
       },
       {
         headers: {
