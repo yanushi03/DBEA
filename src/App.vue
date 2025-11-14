@@ -49,9 +49,6 @@
               <!-- Dropdown Menu -->
               <div
                 class="absolute right-0 mt-2 w-40 bg-white border border-navy-200 rounded-lg shadow-lg opacity-0 invisible group-hover:visible group-hover:opacity-100 transition-all duration-200">
-                <router-link to="/profile" class="block px-4 py-2 text-navy-900 hover:bg-navy-50 transition-colors">
-                  Profile
-                </router-link>
                 <a @click.prevent="handleLogout" href="#"
                   class="block px-4 py-2 text-navy-900 hover:bg-navy-50 transition-colors">
                   Logout

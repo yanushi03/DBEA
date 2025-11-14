@@ -2,7 +2,6 @@ import Vue from 'vue';
 import Router from 'vue-router';
 import Dashboard from '../pages/Dashboard.vue'; // your homepage component
 import Login from "../pages/Login.vue";
-import Profile from "../pages/Profile.vue";
 import MySharedWallets from "../pages/MySharedWallets.vue";
 import WalletDetails from "../pages/WalletDetails.vue";
 import { isAuthenticated } from './auth';
@@ -17,7 +16,6 @@ const router = new Router({
     { path: "/dashboard", name: "Dashboard" ,component: Dashboard },
     { path: "/my-wallets", name: "MySharedWallets", component: MySharedWallets },
     { path: "/wallets/:walletId", name: "WalletDetails", component: WalletDetails, props: true },
-    { path: "/profile", name: "Profile", component: Profile },
     // Add more pages here
   ],
 });
