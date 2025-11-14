@@ -264,7 +264,7 @@
 
 <script>
 import ModalComponent from "./ModalComponent.vue";
-import { getUsers, addMember, getWallet, getCustomerByPhone, GetWalletDetails, sendNotifications, topUpWallet, getWalletTransactions, getAccountDetails } from "@/api/outsystems";
+import { getUsers, addMember, getWallet, getCustomerByPhone, sendNotifications, topUpWallet, getWalletTransactions, getAccountDetails } from "@/api/outsystems";
 import { getAccountId } from "../router/auth";
 
 export default {
@@ -291,10 +291,11 @@ export default {
       isOwner: false,
       errorMessage: "",
       topUpBal: "",
-      depositAccountId: null,
-      customerId: null,
+      depositAccountId: "",
+      customerId: "",
       transactions: [],
       loading: false,
+      topUpLoading: false,  // ✅ ADD THIS
       currentPage: 1,
       pageSize: 5
     };
@@ -401,12 +402,25 @@ export default {
     },
 
     formatTransaction(tx) {
-      const amountNum = Number(tx.Amount ?? 0); // ensure numeric
+      const amountNum = Number(tx.Amount ?? 0);
       const isTopUp = tx.Type?.toLowerCase() === "top-up";
       const isWithdrawal = tx.Type?.toLowerCase() === "withdrawal";
       const sign = isTopUp ? "+" : isWithdrawal ? "-" : "";
 
       const title = tx.Narrative || (isTopUp ? "Wallet Top-Up" : "Wallet Withdrawal");
+
+      // 🛠 Prevent duplication: “by X” should not appear twice
+      let cleanTitle = title;
+
+      if (tx.PerformedBy) {
+        const nameLower = tx.PerformedBy.toLowerCase();
+        const titleLower = title.toLowerCase();
+
+        // If narrative ALREADY includes the name, don't add "by name" again
+        if (!titleLower.includes(nameLower)) {
+          cleanTitle = `${title} by ${tx.PerformedBy}`;
+        }
+      }
 
       // SVG icons
       const iconSvg = isTopUp
@@ -414,9 +428,12 @@ export default {
         : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4m8 8V4" />`;
 
       return {
-        title: `${title} by ${tx.PerformedBy || "Unknown"}`, // <-- show performed by
-        date: new Date(tx.TransactionDate).toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short" }),
-        amount: `${sign}$${amountNum.toFixed(2)}`, // fix NaN issue
+        title: cleanTitle,
+        date: new Date(tx.TransactionDate).toLocaleString("en-SG", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+        amount: `${sign}$${amountNum.toFixed(2)}`,
         status: "Completed",
         iconBg: isTopUp ? "bg-green-100" : "bg-red-100",
         iconColor: isTopUp ? "text-green-600" : "text-red-600",
@@ -622,77 +639,92 @@ export default {
 
     //---------------------- TOP UP WALLET FUNCTION -------------------------------------//
     async topUpWalletBalance() {
-      this.topUpLoading = true; // start loading spinner
       try {
-        if (!this.topUpBal || isNaN(this.topUpBal) || this.topUpBal <= 0) {
+        this.errorMessage = "";
+
+        // Validate amount
+        const amount = parseFloat(this.topUpBal);
+        if (!this.topUpBal || isNaN(amount) || amount <= 0) {
           this.errorMessage = "Please enter a valid top-up amount.";
           return;
         }
 
+        this.topUpLoading = true;
+
+        // Get session data
         const customerId = this.customerId;
         const depositAccountId = this.depositAccountId;
         const walletId = this.walletId;
 
+        console.log('📋 Session Data:', { customerId, depositAccountId, walletId });
+
+        // Validate required data
         if (!customerId || !depositAccountId || !walletId) {
-          this.errorMessage = "Missing required account or wallet details.";
+          this.errorMessage = "Missing required account or wallet details. Please log in again.";
           return;
         }
 
-        if (!confirm(`Confirm to top up $${this.topUpBal}? This will withdraw from your deposit account.`)) {
+        // Confirm with user
+        if (!confirm(`Confirm to top up $${amount.toFixed(2)}? This will withdraw from your deposit account.`)) {
+          this.topUpLoading = false;
+          this.loading = false;
           return;
         }
 
-        // Get full name for PerformedBy
+        // Start loading
+        this.loading = true;
+
+        // Get account details for PerformedBy
         const accountDetails = await getAccountDetails(this.currentAccount);
-        const performedBy = accountDetails?.FullName || "Unknown User";
+        const performedBy = accountDetails?.FullName || this.currentAccount || "Unknown User";
 
-        // --- Optimistic UI: prepend transaction immediately ---
-        const newTx = {
-          title: `Wallet Top-Up by ${performedBy}`,
-          date: new Date().toLocaleString("en-SG", { dateStyle: "medium", timeStyle: "short" }),
-          amount: `+$${parseFloat(this.topUpBal).toFixed(2)}`,
-          status: "Completed",
-          iconBg: "bg-green-100",
-          iconColor: "text-green-600",
-          amountColor: "text-green-600",
-          statusBg: "bg-navy-50",
-          statusColor: "text-navy-700",
-          svg: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />`,
-        };
-        this.transactions.unshift(newTx);
-        this.walletBalance += parseFloat(this.topUpBal); // instant balance update
+        console.log('🚀 Calling topUpWallet...');
 
-        // Call API (parallelized inside topUpWallet)
-        const response = await topUpWallet(
-          customerId,
-          depositAccountId,
-          walletId,
-          parseFloat(this.topUpBal),
-          "Wallet Top-Up",
-          performedBy
-        );
+        // ✅ FIXED: Call API with correct object structure
+        const result = await topUpWallet({
+          customerId: customerId,
+          accountId: depositAccountId,
+          walletId: walletId,
+          amount: amount,
+          narrative: `Wallet top-up by ${performedBy}`,
+          performedBy: performedBy
+        });
 
-        // Show message
-        if (!response.success) {
-          this.errorMessage = response.message || "Failed to top up wallet.";
+        console.log('📊 TopUp Result:', result);
+
+        // Handle response
+        if (result.success) {
+          // Show success message
+          alert(
+            `✅ Top-up successful!\n\n` +
+            `Amount: $${amount.toFixed(2)}\n` +
+            `New Balance: $${result.updatedBalance || 'Loading...'}\n` +
+            `Transaction ID: ${result.transactionId || 'N/A'}`
+          );
+
+          // Send notification
+          await this.notifyTopUpSuccess(accountDetails, amount, this.walletName);
+
+          // Close modal
+          this.closeTopUpModal();
+
+          // Refresh wallet data from API
+          await this.loadWallet(walletId);
+          await this.loadWalletTransactions(walletId);
+
+          // Go to last page to see new transaction
+          this.goToLastPage();
+
         } else {
-          this.successMessage = response.message;
-          // Send notification to the person who added funds
-          await this.notifyTopUpSuccess(accountDetails, parseFloat(this.topUpBal), this.walletName);
+          // Show error message
+          this.errorMessage = result.message || "Failed to top up wallet.";
         }
 
-        // Refresh wallet and transactions from backend
-        await this.loadWallet(walletId);            // <--- this updates balance & member contributions
-        await this.loadWalletTransactions(walletId);
-        this.goToLastPage();
-
-        // Close modal after completion
-        this.closeTopUpModal();
       } catch (error) {
-        console.error("Top-up failed:", error);
-        this.errorMessage = error.message || "Failed to process top-up.";
+        console.error("💥 Top-up error:", error);
+        this.errorMessage = error.message || "An unexpected error occurred. Please try again.";
       } finally {
-        this.topUpLoading = false; // stop spinner
+        this.topUpLoading = false;
       }
     }
     //------------------------------- END OF TOP UP WALLET FUNCTION ------------------ //
