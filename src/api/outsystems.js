@@ -188,10 +188,10 @@ export async function getWallet(walletId) {
 export async function loginUser(accountId, password) {
   try {
     const response = await axios.post(
-      `${customerAPIUrl}/login`,
+      `${customerAPIUrl}/Login`,
       {
-        accountId, // send directly
-        password,
+        AccountId: accountId.trim(),
+        Password: password,
       },
       {
         headers: {
@@ -199,13 +199,21 @@ export async function loginUser(accountId, password) {
         },
       }
     );
-    return response.data;
+
+    // Check if login was successful
+    if (response.data && response.data.Success === true) {
+      return response.data;
+    } else {
+      // Login failed based on Success flag
+      throw new Error(
+        "You have entered the wrong Account Id or Password. Please try again."
+      );
+    }
   } catch (error) {
-    console.error(
-      "Login failed:",
-      error.response ? error.response.data : error
+    // Always throw user-friendly message without console logs
+    throw new Error(
+      "You have entered the wrong Account Id or Password. Please try again."
     );
-    throw error.response ? error.response.data : error;
   }
 }
 

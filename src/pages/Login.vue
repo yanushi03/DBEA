@@ -20,7 +20,7 @@
       <!-- Form -->
       <form @submit.prevent="handleLogin" class="space-y-4">
         <div>
-          <label class="block text-navy-900 font-medium mb-1" for="email"
+          <label class="block text-navy-900 font-medium mb-1" for="accountId"
             >Account ID</label
           >
           <input
@@ -50,10 +50,9 @@
         <button
           type="submit"
           :disabled="loading"
-          class="w-full bg-navy-600 hover:bg-navy-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
+          class="w-full bg-navy-600 hover:bg-navy-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span v-if="!loading">Login</span>
-
           <i v-else class="fas fa-spinner fa-spin text-white"></i>
         </button>
       </form>
@@ -70,9 +69,7 @@ export default {
   data() {
     return {
       accountId: "",
-      customerId: "",
       password: "",
-      error: "",
       loading: false,
     };
   },
@@ -82,13 +79,32 @@ export default {
 
       try {
         const data = await loginUser(this.accountId, this.password);
+        
+        // Success toast
+        this.$toast.success(`Welcome back, ${data.CustomerDetails.FullName}!`, {
+          timeout: 3000
+        });
+
         const initials = data.CustomerDetails.FullName.split(" ")
           .map((namePart) => namePart[0].toUpperCase())
           .join("");
-        setLoggedIn(initials, data.CustomerDetails.AccountId, data.CustomerDetails.CustomerId); // set logged in to true
-        this.$router.push("/dashboard");
+        
+        setLoggedIn(
+          initials,
+          data.CustomerDetails.AccountId,
+          data.CustomerDetails.CustomerId
+        );
+
+        // Small delay before redirect
+        setTimeout(() => {
+          this.$router.push("/dashboard");
+        }, 500);
+
       } catch (err) {
-        this.error = "Invalid account ID or password.";
+        // Error toast
+        this.$toast.error(err.message || "Invalid account ID or password", {
+          timeout: 4000
+        });
       } finally {
         this.loading = false;
       }
