@@ -944,6 +944,59 @@ export default {
           amount: amountVal,
           phone: Number(this.transferRecipient)
         });
+
+        // Send notifications to both sender and recipient
+        const senderName = this.accountDetails?.FullName || 'You';
+        const recipientName = recipient.FullName || 'Recipient';
+        const amountFormatted = amountVal.toFixed(2);
+
+        // Notification to recipient (person who received the funds)
+        const recipientEmail = recipient.Email || recipient.email;
+        const recipientPhone = recipient.PhoneNumber || recipient.phoneNumber || Number(this.transferRecipient);
+        
+        if (recipientEmail || recipientPhone) {
+          const recipientSubject = `Fund Transfer Received: $${amountFormatted} 💰`;
+          const recipientEmailBody = `Hello ${recipientName},\n\nYou have received a fund transfer of $${amountFormatted} from ${senderName}.\n\nTransaction completed successfully🏦.\n\nThank you!`;
+          const recipientSmsBody = `Hello ${recipientName},\n\nYou received $${amountFormatted} from ${senderName}.\nTransaction completed successfully.`;
+
+          try {
+            await sendNotifications({
+              receipientEmail: recipientEmail,
+              subject: recipientSubject,
+              emailBody: recipientEmailBody,
+              receipientPhoneNumber: recipientPhone,
+              smsBody: recipientSmsBody,
+              notificationType: 'FUND_TRANSFER_RECEIVED'
+            });
+          } catch (notifErr) {
+            console.error('Failed to send notification to recipient:', notifErr);
+            // Don't fail the transfer if notification fails
+          }
+        }
+
+        // Notification to sender (person who sent the funds)
+        const senderEmail = this.accountDetails?.Email || this.accountDetails?.email;
+        const senderPhone = this.accountDetails?.PhoneNumber || this.accountDetails?.phoneNumber;
+        
+        if (senderEmail || senderPhone) {
+          const senderSubject = `Fund Transfer Sent: $${amountFormatted} 💸`;
+          const senderEmailBody = `Hello ${senderName},\n\nYou have successfully transferred $${amountFormatted} to ${recipientName}.\n\nTransaction completed successfully.\n\nThank you for using our service! 🏦`;
+          const senderSmsBody = `Hello ${senderName},\n\nYou sent $${amountFormatted} to ${recipientName}.\nTransaction completed successfully.`;
+
+          try {
+            await sendNotifications({
+              receipientEmail: senderEmail,
+              subject: senderSubject,
+              emailBody: senderEmailBody,
+              receipientPhoneNumber: senderPhone,
+              smsBody: senderSmsBody,
+              notificationType: 'FUND_TRANSFER_SENT'
+            });
+          } catch (notifErr) {
+            console.error('Failed to send notification to sender:', notifErr);
+          }
+        }
+
         this.closeTransferModal();
       } catch (err) {
         console.error('Transfer failed:', err);
