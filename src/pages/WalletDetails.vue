@@ -591,6 +591,34 @@ export default {
         console.error("Failed to send notification to new member:", error);
       }
     },
+    async notifyTopUpSuccess(accountDetails, amount, walletName) {
+      const recipientEmail = accountDetails?.Email || accountDetails?.email || null;
+      const recipientPhone = accountDetails?.PhoneNumber || accountDetails?.MobileNumber || accountDetails?.phone || null;
+      const recipientName = accountDetails?.FullName || accountDetails?.Name || "there";
+
+      if (!recipientEmail && !recipientPhone) {
+        console.warn("No contact details available to send top-up notification");
+        return;
+      }
+
+      const formattedAmount = `$${amount.toFixed(2)}`;
+      const subject = `Wallet Top-Up Successful: ${walletName}`;
+      const emailBody = `Hello ${recipientName},\n\nYou have successfully added ${formattedAmount} to the shared wallet "${walletName}".\n\nThe wallet balance has been updated.\n\nThank you`;
+      const smsBody = `Hello ${recipientName},\n\nYour wallet top-up was successful!\nYou added ${formattedAmount} to "${walletName}".\nCheck your account for details.`;
+
+      try {
+        await sendNotifications({
+          receipientEmail: recipientEmail,
+          subject,
+          emailBody,
+          receipientPhoneNumber: recipientPhone,
+          smsBody,
+          notificationType: "WALLET_TOP_UP"
+        });
+      } catch (error) {
+        console.error("Failed to send top-up notification:", error);
+      }
+    },
 
     //---------------------- TOP UP WALLET FUNCTION -------------------------------------//
     async topUpWalletBalance() {
@@ -649,6 +677,8 @@ export default {
           this.errorMessage = response.message || "Failed to top up wallet.";
         } else {
           this.successMessage = response.message;
+          // Send notification to the person who added funds
+          await this.notifyTopUpSuccess(accountDetails, parseFloat(this.topUpBal), this.walletName);
         }
 
         // Refresh wallet and transactions from backend
