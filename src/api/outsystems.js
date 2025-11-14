@@ -138,6 +138,38 @@ export async function topUpWallet(topUpData) {
 }
 //------------------------------------ END OF**UPDATED** TOP UP WALLET FUNCTION -------------------------------------//
 
+//--------------------- UPDATE WALLET BALANCE FUNCTION ------------------------------------------//
+export async function updateWalletBalance(walletId, balance) {
+  try {
+    const response = await axios.put(
+      `${walletAPIUrl}/wallet/${walletId}`,
+      { balance: parseFloat(balance) },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return {
+      success: true,
+      data: response.data,
+      walletId: response.data?.walletId || walletId,
+      balance: response.data?.balance || balance,
+    };
+  } catch (error) {
+    console.error("Update wallet error:", error.response?.data || error.message);
+    const errorData = error.response?.data || {};
+    const errorMessage = errorData.message || errorData.Message || errorData.error || errorData.Error || error.message ||
+      "Failed to update wallet balance.";
+    return {
+      success: false,
+      message: errorMessage,
+    };
+  }
+}
+//--------------------- END OF UPDATE WALLET BALANCE FUNCTION ------------------------------------------//
+
 //--------------------- GET WALLET TRANSACTIONS --------------------------------------//
 export async function getWalletTransactions(walletId) {
   if (!walletId) {
@@ -545,6 +577,26 @@ export async function getCustomerByPhone(phoneNumber) {
       return null;
     }
     console.error("Failed to fetch customer by phone: " + error);
+    throw error.response ? error.response.data : error;
+  }
+}
+
+export async function getCustomerByAccountId(accountId) {
+  try {
+    const response = await axios.get(
+      `${customerAPIUrl}/customers/${accountId}/`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return null;
+    }
+    console.error("Failed to fetch customer by accountId: " + error);
     throw error.response ? error.response.data : error;
   }
 }
