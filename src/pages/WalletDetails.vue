@@ -100,35 +100,83 @@
 
           <!-- Top Up Wallet Modal -->
           <ModalComponent v-if="showTopUpModal" :modal-title="'Top Up Wallet'" @close="closeTopUpModal">
-            <form class="space-y-4" @submit.prevent="topUpWalletBalance">
-              <label class="block text-sm font-medium">
-                Top Up Amount:
-                <input v-model="topUpBal" class="block w-full mt-2 p-2 border rounded text-black" required
-                  :disabled="loading" />
-              </label>
+            <div class="relative w-full h-full bg-white rounded-2xl">
+              <!-- Loader overlay covering the entire modal -->
+              <div v-if="topUpLoading"
+                class="absolute inset-0 bg-white flex flex-col items-center justify-center z-50 overflow-hidden">
+                <svg class="w-12 h-12 animate-spin text-purple-600 mb-4" fill="none" stroke="currentColor"
+                  viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <p class="text-purple-700 font-medium text-center text-lg">
+                  Hang on, topping up your wallet...
+                </p>
+              </div>
 
-              <div class="flex gap-3 mt-6">
-                <button type="submit"
-                  class="px-4 py-2 rounded bg-purple-600 text-white font-semibold hover:bg-purple-700 transition flex items-center justify-center"
-                  :disabled="topUpLoading">
-                  <span v-if="!topUpLoading">Top Up</span>
-                  <span v-else class="flex items-center gap-2">
-                    <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                    </svg>
-                    Processing...
-                  </span>
+              <!-- Top-up form -->
+              <form class="space-y-4 relative z-10" @submit.prevent="showConfirmTopUp">
+                <p class="text-sm text-navy-500 mb-4">
+                  Current Contribution: <span class="font-semibold">{{ formattedBalance }}</span>
+                </p>
+                <label class="block text-sm font-medium">Top Up Amount:</label>
+                <input v-model="topUpBal" class="block w-full mt-2 p-2 border rounded text-black" required
+                  :disabled="topUpLoading" />
+
+                <div class="flex gap-3 mt-6">
+                  <button type="submit"
+                    class="px-4 py-2 rounded bg-purple-600 text-white font-semibold hover:bg-purple-700 transition flex items-center justify-center"
+                    :disabled="topUpLoading">
+                    <span>Top Up</span>
+                  </button>
+
+                  <button type="button" @click="closeTopUpModal"
+                    class="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+                    :disabled="topUpLoading">
+                    Cancel
+                  </button>
+                </div>
+
+                <p v-if="errorMessage" class="text-red-500 text-sm mt-2">{{ errorMessage }}</p>
+              </form>
+            </div>
+          </ModalComponent>
+          <!--End of Top Up Wallet Modal-->
+
+          <!-- Confirm Top-Up Modal -->
+          <ModalComponent v-if="showConfirmModal" :modal-title="'Confirm Top-Up'" @close="cancelTopUp">
+            <div class="flex flex-col items-center p-6 space-y-4">
+              <!-- Icon -->
+              <div class="flex items-center justify-center w-16 h-16 rounded-full bg-purple-100">
+                <svg class="w-10 h-10 text-purple-600" fill="none" stroke="currentColor" viewBox="0 2 24 28">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M12 6a9 9 0 110 18 9 9 0 010-18z" />
+                </svg>
+              </div>
+
+              <!-- Message -->
+              <p class="text-center text-gray-800 text-sm md:text-base">
+                Are you sure you want to top up <span class="font-semibold">${{ confirmAmount.toFixed(2) }}</span>?
+                This will be withdrawn from your deposit account.
+              </p>
+
+              <!-- Buttons -->
+              <div class="flex gap-3 mt-2 w-full justify-center">
+                <button @click="cancelTopUp"
+                  class="flex-1 px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition">
+                  No
                 </button>
 
-                <button type="button" @click="closeTopUpModal"
-                  class="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition" :disabled="loading">
-                  Cancel
+                <button @click="confirmTopUp"
+                  class="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold hover:from-purple-700 hover:to-purple-800 transition">
+                  Yes
                 </button>
               </div>
-            </form>
+            </div>
           </ModalComponent>
-          <!-- End of Top Up Modal -->
+          <!-- End of Confirm Top-Up Modal -->
+
+
 
           <div class="overlay" v-if="showModal"></div>
         </div>
@@ -183,15 +231,6 @@
         </div>
       </div>
     </div>
-
-    <!-- <div class="bg-white rounded-2xl shadow-sm border border-navy-100">
-      <div class="p-6 border-b border-navy-100">
-        <div class="flex justify-between items-center">
-          <h2 class="text-2xl font-bold text-navy-900">Recent Transactions</h2>
-          <button class="text-navy-600 hover:text-navy-900 text-sm font-medium" disabled>Coming Soon</button>
-        </div>
-      </div>
-    </div> -->
 
     <!-- Shared Wallet Transactions -->
     <div class="bg-white rounded-2xl shadow-sm border border-navy-100 mt-8" v-if="transactions.length > 0">
@@ -272,6 +311,8 @@ export default {
   components: { ModalComponent },
   data() {
     return {
+      showConfirmModal: false,
+      confirmAmount: 0,
       sharedBalanceVisible: true,
       hiddenSharedBalance: "••••••••",
       walletName: "Loading wallet...",
@@ -353,6 +394,62 @@ export default {
     }
   },
   methods: {
+    showConfirmTopUp() {
+      const amount = parseFloat(this.topUpBal);
+      if (!this.topUpBal || isNaN(amount) || amount <= 0) {
+        this.errorMessage = "Please enter a valid top-up amount.";
+        return;
+      }
+
+      // Show your confirm modal
+      this.confirmAmount = amount;
+      this.showConfirmModal = true;
+    },
+
+    cancelTopUp() {
+      this.showConfirmModal = false;
+      this.topUpLoading = false;
+      this.loading = false;
+    },
+
+    async confirmTopUp() {
+      this.showConfirmModal = false;
+      this.loading = true;
+      this.topUpLoading = true;
+
+      try {
+        // Get account details
+        const accountDetails = await getAccountDetails(this.currentAccount);
+        const performedBy = accountDetails?.FullName || this.currentAccount || "Unknown User";
+
+        const result = await topUpWallet({
+          customerId: this.customerId,
+          accountId: this.depositAccountId,
+          walletId: this.walletId,
+          amount: this.confirmAmount,
+          narrative: `Wallet top-up by ${performedBy}`,
+          depositAccNarrative: `Wallet top-up`,
+          performedBy: performedBy
+        });
+
+        if (result.success) {
+          await this.notifyTopUpSuccess(accountDetails, this.confirmAmount, this.walletName);
+          this.closeTopUpModal();
+          await this.loadWallet(this.walletId);
+          await this.loadWalletTransactions(this.walletId);
+          this.goToLastPage();
+        } else {
+          this.errorMessage = result.message || "Failed to top up wallet.";
+        }
+
+      } catch (error) {
+        console.error("💥 Top-up error:", error);
+        this.errorMessage = error.message || "An unexpected error occurred. Please try again.";
+      } finally {
+        this.topUpLoading = false;
+        this.loading = false;
+      }
+    },
     nextPage() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++;
@@ -409,30 +506,34 @@ export default {
 
       const title = tx.Narrative || (isTopUp ? "Wallet Top-Up" : "Wallet Withdrawal");
 
-      // 🛠 Prevent duplication: “by X” should not appear twice
       let cleanTitle = title;
-
       if (tx.PerformedBy) {
         const nameLower = tx.PerformedBy.toLowerCase();
         const titleLower = title.toLowerCase();
-
-        // If narrative ALREADY includes the name, don't add "by name" again
         if (!titleLower.includes(nameLower)) {
           cleanTitle = `${title} by ${tx.PerformedBy}`;
         }
       }
 
-      // SVG icons
       const iconSvg = isTopUp
         ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />`
         : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4m8 8V4" />`;
 
+      // Display exact UTC date/time
+      const date = new Date(tx.TransactionDate);
+      const formattedDate = date.toLocaleString("en-GB", {
+        timeZone: "UTC",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+      })
+
       return {
         title: cleanTitle,
-        date: new Date(tx.TransactionDate).toLocaleString("en-SG", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        }),
+        date: formattedDate,      // Will now show exactly 2025-11-14 20:47
         amount: `${sign}$${amountNum.toFixed(2)}`,
         status: "Completed",
         iconBg: isTopUp ? "bg-green-100" : "bg-red-100",
@@ -664,12 +765,8 @@ export default {
           return;
         }
 
-        // Confirm with user
-        if (!confirm(`Confirm to top up $${amount.toFixed(2)}? This will withdraw from your deposit account.`)) {
-          this.topUpLoading = false;
-          this.loading = false;
-          return;
-        }
+        this.confirmAmount = amount;
+        this.showConfirmModal = true;
 
         // Start loading
         this.loading = true;
@@ -687,6 +784,7 @@ export default {
           walletId: walletId,
           amount: amount,
           narrative: `Wallet top-up by ${performedBy}`,
+          depositAccNarrative: `Wallet top-up`,
           performedBy: performedBy
         });
 
@@ -742,5 +840,30 @@ function getInitials(name) {
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
   z-index: 998;
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: all 0.3s ease;
+}
+
+.modal-enter-from {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+.modal-enter-to {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modal-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.modal-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
 }
 </style>
