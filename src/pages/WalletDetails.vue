@@ -694,14 +694,6 @@ export default {
 
         // Handle response
         if (result.success) {
-          // Show success message
-          alert(
-            `✅ Top-up successful!\n\n` +
-            `Amount: $${amount.toFixed(2)}\n` +
-            `New Balance: $${result.updatedBalance || 'Loading...'}\n` +
-            `Transaction ID: ${result.transactionId || 'N/A'}`
-          );
-
           // Send notification
           await this.notifyTopUpSuccess(accountDetails, amount, this.walletName);
 
