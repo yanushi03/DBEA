@@ -72,6 +72,11 @@
             @click="openTopUpModal">
             Add Funds to Wallet
           </button>
+          <button
+            class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors backdrop-blur-sm"
+            @click="openTransferOutModal">
+            Transfer Out
+          </button>
 
           <!-- Add New Member Modal -->
           <ModalComponent v-if="showModal" :modal-title="'Add User to Wallet'" @close="closeModal">
@@ -177,6 +182,87 @@
           <!-- End of Confirm Top-Up Modal -->
 
 
+
+          <!-- Transfer Out Modal -->
+          <ModalComponent v-if="showTransferOutModal" :modal-title="'Transfer Out from Wallet'" @close="closeTransferOutModal">
+            <form class="space-y-4" @submit.prevent="transferOutFromWallet">
+              <div class="mb-4">
+                <p class="text-sm text-gray-600 mb-2">Current Wallet Balance: <span class="font-semibold">{{ formattedBalance }}</span></p>
+              </div>
+              
+              <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Transfer To:</label>
+                <div class="flex gap-4 mb-3">
+                  <label class="flex items-center">
+                    <input 
+                      type="radio" 
+                      v-model="transferOutRecipientType" 
+                      value="phone"
+                      class="mr-2" />
+                    Phone Number
+                  </label>
+                  <label class="flex items-center">
+                    <input 
+                      type="radio" 
+                      v-model="transferOutRecipientType" 
+                      value="accountId"
+                      class="mr-2" />
+                    Account ID
+                  </label>
+                </div>
+                <input 
+                  v-model="transferOutRecipient" 
+                  :type="transferOutRecipientType === 'phone' ? 'tel' : 'text'"
+                  :placeholder="transferOutRecipientType === 'phone' ? 'Enter phone number' : 'Enter account ID'"
+                  class="block w-full mt-2 p-2 border rounded text-black" 
+                  required
+                  :disabled="transferOutLoading"
+                  @input="lookupRecipient" />
+                <div v-if="recipientName" class="mt-2 text-sm text-green-600">
+                  {{ recipientName }}
+                </div>
+              </div>
+
+              <label class="block text-sm font-medium">
+                Transfer Amount:
+                <input 
+                  v-model="transferOutAmount" 
+                  type="number" 
+                  step="0.01" 
+                  placeholder="Enter amount to transfer out"
+                  class="block w-full mt-2 p-2 border rounded text-black" 
+                  required
+                  :disabled="transferOutLoading" />
+              </label>
+              <div v-if="transferOutError" class="text-red-600 text-sm mt-2">
+                {{ transferOutError }}
+              </div>
+
+              <div class="flex gap-3 mt-6">
+                <button 
+                  type="submit"
+                  class="px-4 py-2 rounded bg-purple-600 text-white font-semibold hover:bg-purple-700 transition flex items-center justify-center"
+                  :disabled="transferOutLoading">
+                  <span v-if="!transferOutLoading">Transfer Out</span>
+                  <span v-else class="flex items-center gap-2">
+                    <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                    Processing...
+                  </span>
+                </button>
+
+                <button 
+                  type="button" 
+                  @click="closeTransferOutModal"
+                  class="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition" 
+                  :disabled="transferOutLoading">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </ModalComponent>
 
           <div class="overlay" v-if="showModal"></div>
         </div>
@@ -303,7 +389,7 @@
 
 <script>
 import ModalComponent from "./ModalComponent.vue";
-import { getUsers, addMember, getWallet, getCustomerByPhone, sendNotifications, topUpWallet, getWalletTransactions, getAccountDetails } from "@/api/outsystems";
+import { getUsers, addMember, getWallet, getCustomerByPhone, getCustomerByAccountId, sendNotifications, topUpWallet, getWalletTransactions, getAccountDetails, updateWalletBalance, transferFunds } from "@/api/outsystems";
 import { getAccountId } from "../router/auth";
 
 export default {
@@ -338,7 +424,14 @@ export default {
       loading: false,
       topUpLoading: false,  // ✅ ADD THIS
       currentPage: 1,
-      pageSize: 5
+      pageSize: 5,
+      showTransferOutModal: false,
+      transferOutAmount: "",
+      transferOutLoading: false,
+      transferOutError: null,
+      transferOutRecipientType: "phone", // "phone" or "accountId"
+      transferOutRecipient: "",
+      recipientName: null
     };
   },
   computed: {
@@ -568,6 +661,174 @@ export default {
     closeTopUpModal() {
       this.showTopUpModal = false;
       this.topUpBal = "";
+    },
+    async openTransferOutModal() {
+      if (!this.walletId) return;
+      await this.loadWallet(this.walletId);
+      this.transferOutError = null;
+      this.transferOutAmount = "";
+      this.showTransferOutModal = true;
+    },
+    closeTransferOutModal() {
+      this.showTransferOutModal = false;
+      this.transferOutAmount = "";
+      this.transferOutRecipient = "";
+      this.transferOutRecipientType = "phone";
+      this.recipientName = null;
+      this.transferOutError = null;
+    },
+    async lookupRecipient() {
+      if (!this.transferOutRecipient || this.transferOutRecipient.trim().length === 0) {
+        this.recipientName = null;
+        return;
+      }
+
+      try {
+        let recipient;
+        if (this.transferOutRecipientType === "phone") {
+          recipient = await getCustomerByPhone(Number(this.transferOutRecipient));
+        } else {
+          recipient = await getCustomerByAccountId(this.transferOutRecipient);
+        }
+        this.recipientName = recipient?.FullName || null;
+      } catch (error) {
+        this.recipientName = null;
+      }
+    },
+    async transferOutFromWallet() {
+      this.transferOutError = null;
+
+      if (!this.walletId) {
+        this.transferOutError = "Wallet ID is missing.";
+        return;
+      }
+
+      if (!this.transferOutRecipient || this.transferOutRecipient.trim().length === 0) {
+        this.transferOutError = "Please enter a recipient phone number or account ID.";
+        return;
+      }
+
+      const amount = parseFloat(this.transferOutAmount);
+      
+      if (isNaN(amount) || amount <= 0) {
+        this.transferOutError = "Please enter a valid amount.";
+        return;
+      }
+
+      this.transferOutLoading = true;
+
+      try {
+        // Get recipient details
+        let recipient;
+        if (this.transferOutRecipientType === "phone") {
+          recipient = await getCustomerByPhone(Number(this.transferOutRecipient));
+        } else {
+          recipient = await getCustomerByAccountId(this.transferOutRecipient);
+        }
+
+        if (!recipient || !recipient.AccountId) {
+          this.transferOutError = "Recipient not found. Please check the phone number or account ID.";
+          this.transferOutLoading = false;
+          return;
+        }
+
+        const recipientName = recipient.FullName || "Recipient";
+        const confirmMessage = `Are you sure you want to transfer $${amount.toFixed(2)} from this wallet to ${recipientName}?`;
+        if (!window.confirm(confirmMessage)) {
+          this.transferOutLoading = false;
+          return;
+        }
+
+        await this.loadWallet(this.walletId);
+        
+        // Get sender account details
+        const accountDetails = await getAccountDetails(this.currentAccount);
+        if (!accountDetails || !accountDetails.CustomerId) {
+          this.transferOutError = "Unable to get your account details. Please try again.";
+          this.transferOutLoading = false;
+          return;
+        }
+
+        await transferFunds({
+          accountIdFrom: this.currentAccount,
+          consumerIdFrom: accountDetails.CustomerId,
+          amount: amount,
+          phone: recipient.PhoneNumber || Number(this.transferOutRecipient)
+        });
+
+        // Update wallet balance (reduce it)
+        const balanceChange = -amount;
+        const result = await updateWalletBalance(this.walletId, balanceChange);
+
+        if (result.success) {
+          this.walletBalance = result.balance;
+          
+          await this.loadWallet(this.walletId);
+          await this.loadWalletTransactions(this.walletId);
+
+          const senderName = accountDetails?.FullName || accountDetails?.Name;
+          const amountFormatted = amount.toFixed(2);
+
+          // Notification to sender
+          try {
+            const senderEmail = accountDetails?.Email || accountDetails?.email;
+            const senderPhone = accountDetails?.PhoneNumber || accountDetails?.MobileNumber || accountDetails?.phone;
+            
+            if (senderEmail || senderPhone) {
+              const senderSubject = `Wallet Transfer Out: $${amountFormatted} 💸`;
+              const senderEmailBody = `Hello ${senderName},\n\nYou have successfully transferred out $${amountFormatted} from the wallet "${this.walletName}" to ${recipientName}.\n\nNew wallet balance: ${this.formatCurrency(this.walletBalance)}\n\nThank you! 🏦`;
+              const senderSmsBody = `Hello ${senderName},\n\nYou transferred out $${amountFormatted} from "${this.walletName}" to ${recipientName}.\nNew balance: ${this.formatCurrency(this.walletBalance)}`;
+
+              await sendNotifications({
+                receipientEmail: senderEmail,
+                subject: senderSubject,
+                emailBody: senderEmailBody,
+                receipientPhoneNumber: senderPhone,
+                smsBody: senderSmsBody,
+                notificationType: 'WALLET_TRANSFER_OUT'
+              });
+            }
+          } catch (notifErr) {
+            console.error('Failed to send notification to sender:', notifErr);
+          }
+
+          // Notification to recipient
+          try {
+            const recipientEmail = recipient.Email || recipient.email;
+            const recipientPhone = recipient.PhoneNumber || recipient.phoneNumber;
+            
+            if (recipientEmail || recipientPhone) {
+              const recipientSubject = `Fund Transfer Received: $${amountFormatted} 💰`;
+              const recipientEmailBody = `Hello ${recipientName},\n\nYou have received a fund transfer of $${amountFormatted} from ${senderName} (from wallet "${this.walletName}").\n\nTransaction completed successfully🏦.\n\nThank you!`;
+              const recipientSmsBody = `Hello ${recipientName},\n\nYou received $${amountFormatted} from ${senderName} (from wallet "${this.walletName}").\nTransaction completed successfully.`;
+
+              await sendNotifications({
+                receipientEmail: recipientEmail,
+                subject: recipientSubject,
+                emailBody: recipientEmailBody,
+                receipientPhoneNumber: recipientPhone,
+                smsBody: recipientSmsBody,
+                notificationType: 'FUND_TRANSFER_RECEIVED'
+              });
+            }
+          } catch (notifErr) {
+            console.error('Failed to send notification to recipient:', notifErr);
+          }
+
+          alert(`Successfully transferred $${amount.toFixed(2)} from wallet to ${recipientName}.\nNew wallet balance: ${this.formatCurrency(this.walletBalance)}`);
+
+          this.closeTransferOutModal();
+        } else {
+          this.transferOutError = result.message || "Failed to update wallet balance. Please try again.";
+        }
+      } catch (error) {
+        console.error("Transfer out error:", error);
+        const errorMessage = error.response?.data?.message || error.response?.data?.Message || error.message || 
+                            "An error occurred while transferring out. Please try again.";
+        this.transferOutError = errorMessage;
+      } finally {
+        this.transferOutLoading = false;
+      }
     },
     async lookupName(phoneNumber) {
       try {
