@@ -1,14 +1,15 @@
 /**
- * Utility functions for formatting IDs to match OutSystems database format
- * OutSystems stores IDs as numbers (without leading zeros)
+ * Utility functions for formatting IDs to standardize the format with leading zeros
  */
 
 /**
- * Removes leading zeros from an ID to match OutSystems format
+ * Adds leading zeros to an ID to standardize the format
+ * Pads the ID to 10 digits with leading zeros (e.g., "2583" -> "0000002583")
  * @param {string|number} id - The ID to format
- * @returns {string} - ID without leading zeros (e.g., "0000002583" -> "2583")
+ * @param {number} length - The target length (default: 10)
+ * @returns {string} - ID with leading zeros
  */
-export function removeLeadingZeros(id) {
+export function addLeadingZeros(id, length = 10) {
   if (!id) return id;
   
   // Convert to string if it's a number
@@ -16,18 +17,10 @@ export function removeLeadingZeros(id) {
     id = id.toString();
   }
   
-  // Remove leading zeros, but keep at least one digit
-  // This handles cases like "0000002583" -> "2583" but "0" -> "0"
-  return id.replace(/^0+/, '') || id;
-}
-
-/**
- * Formats an ID for OutSystems API calls
- * Ensures the ID is in the format OutSystems expects (no leading zeros)
- * @param {string|number} id - The ID to format
- * @returns {string} - Formatted ID
- */
-export function formatIdForOutSystems(id) {
-  return removeLeadingZeros(id);
+  // Remove any existing leading zeros first, then pad
+  const cleanedId = id.replace(/^0+/, '') || id;
+  
+  // Pad with leading zeros to the specified length
+  return cleanedId.padStart(length, '0');
 }
 
