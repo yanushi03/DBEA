@@ -218,6 +218,7 @@ export default {
         const response = await getWalletList(accountId);
         const walletsArray = Array.isArray(response) ? response : [];
         
+        // Check if status exists in the list response (check first wallet as sample)
         const firstWallet = walletsArray[0];
         const hasStatus = firstWallet && (firstWallet.Status || firstWallet.status);
         
@@ -398,6 +399,7 @@ export default {
       }).format(Number.isNaN(numericAmount) ? 0 : numericAmount);
     },
     getWalletStatus(wallet) {
+      // Status is already normalized when fetching wallets
       return wallet.Status || wallet.status || 'active';
     },
     goToWallet(walletId) {
