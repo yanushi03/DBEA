@@ -229,6 +229,7 @@
                   v-model="transferOutAmount" 
                   type="number" 
                   step="0.01" 
+                  :max="walletBalance"
                   placeholder="Enter amount to transfer out"
                   class="block w-full mt-2 p-2 border rounded text-black" 
                   required
@@ -389,7 +390,7 @@
 
 <script>
 import ModalComponent from "./ModalComponent.vue";
-import { getUsers, addMember, getWallet, getCustomerByPhone, getCustomerByAccountId, sendNotifications, topUpWallet, getWalletTransactions, getAccountDetails, updateWalletBalance, transferFunds } from "@/api/outsystems";
+import { getUsers, addMember, getWallet, getCustomerByPhone, getCustomerByAccountId, sendNotifications, topUpWallet, getWalletTransactions, getAccountDetails, updateWalletBalance, transferFunds, transferOutFromWallet } from "@/api/outsystems";
 import { getAccountId } from "../router/auth";
 
 export default {
@@ -593,18 +594,32 @@ export default {
 
     formatTransaction(tx) {
       const amountNum = Number(tx.Amount ?? 0);
-      const isTopUp = tx.Type?.toLowerCase() === "top-up";
-      const isWithdrawal = tx.Type?.toLowerCase() === "withdrawal";
-      const sign = isTopUp ? "+" : isWithdrawal ? "-" : "";
+      const txType = tx.Type?.toLowerCase() || "";
+      const isTopUp = txType === "top-up" || txType === "topup";
+      const isWithdrawal = txType === "withdrawal";
+      const isTransferOut = txType === "transfer-out" || txType === "transferout" || 
+                           tx.Narrative?.toLowerCase().includes("transfer out");
+      const isOutgoing = isWithdrawal || isTransferOut;
+      const sign = isTopUp ? "+" : isOutgoing ? "-" : "";
 
-      const title = tx.Narrative || (isTopUp ? "Wallet Top-Up" : "Wallet Withdrawal");
+      let title = tx.Narrative || "";
+
+      if (title.includes("| To:")) {
+        title = title.split("| To:")[0].trim();
+      }
 
       let cleanTitle = title;
       if (tx.PerformedBy) {
-        const nameLower = tx.PerformedBy.toLowerCase();
+        let performedByName = tx.PerformedBy;
+        if (/^\d+$/.test(tx.PerformedBy)) {
+          const member = this.members.find(m => m.accId === tx.PerformedBy);
+          performedByName = member ? member.name : tx.PerformedBy;
+        }
+        
+        const nameLower = performedByName.toLowerCase();
         const titleLower = title.toLowerCase();
         if (!titleLower.includes(nameLower)) {
-          cleanTitle = `${title} by ${tx.PerformedBy}`;
+          cleanTitle = `${title} by ${performedByName}`;
         }
       }
 
@@ -715,6 +730,12 @@ export default {
         return;
       }
 
+      // Check if amount exceeds wallet balance
+      if (amount > this.walletBalance) {
+        this.transferOutError = `Insufficient balance. You can only transfer up to ${this.formatCurrency(this.walletBalance)}.`;
+        return;
+      }
+
       this.transferOutLoading = true;
 
       try {
@@ -749,24 +770,44 @@ export default {
           return;
         }
 
-        await transferFunds({
-          accountIdFrom: this.currentAccount,
-          consumerIdFrom: accountDetails.CustomerId,
+        const senderName = accountDetails?.FullName || accountDetails?.Name || "Unknown User";
+        
+        const recipientIdentifier = this.transferOutRecipientType === "phone" 
+          ? (recipient.PhoneNumber || this.transferOutRecipient)
+          : (recipient.AccountId || this.transferOutRecipient);
+        const recipientIdentifierType = this.transferOutRecipientType === "phone" ? "phone" : "accountId";
+        
+        const result = await transferOutFromWallet({
+          walletId: this.walletId,
           amount: amount,
-          phone: recipient.PhoneNumber || Number(this.transferOutRecipient)
+          recipientIdentifier: recipientIdentifier,
+          recipientIdentifierType: recipientIdentifierType,
+          narrative: `Transfer out to ${recipientName}`,
+          performedBy: senderName, // Name for display
+          performedByAccountId: this.currentAccount, // AccountId to identify member for contribution update
+          transactionDate: new Date().toISOString()
         });
 
-        // Update wallet balance (reduce it)
-        const balanceChange = -amount;
-        const result = await updateWalletBalance(this.walletId, balanceChange);
-
         if (result.success) {
-          this.walletBalance = result.balance;
+          if (result.updatedBalance !== null && result.updatedBalance !== undefined) {
+            this.walletBalance = result.updatedBalance;
+          }
+          
+          try {
+            await transferFunds({
+              accountIdFrom: this.currentAccount,
+              consumerIdFrom: accountDetails.CustomerId,
+              amount: amount,
+              phone: recipient.PhoneNumber || Number(this.transferOutRecipient)
+            });
+          } catch (fundTransferError) {
+            console.error("Fund transfer error (non-critical):", fundTransferError);
+          }
           
           await this.loadWallet(this.walletId);
           await this.loadWalletTransactions(this.walletId);
+          this.goToLastPage();
 
-          const senderName = accountDetails?.FullName || accountDetails?.Name;
           const amountFormatted = amount.toFixed(2);
 
           // Notification to sender

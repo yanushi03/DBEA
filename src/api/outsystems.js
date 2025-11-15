@@ -23,7 +23,10 @@ const walletAPIUrl = process.env.VUE_APP_WALLET_SERVICE_API_URL;
 const topupWalletUrl = process.env.VUE_APP_TOPUPWALLET_SERVICE_API_URL;
 
 // Fund Transfer Service API URL
-const fundTransferUrl = process.env.VUE_APP_FUNDTRANSFER_SERVICE_API_URL
+const fundTransferUrl = process.env.VUE_APP_FUNDTRANSFER_SERVICE_API_URL;
+
+// Transfer Out From Wallet Service API URL
+const transferOutFromWalletUrl = process.env.VUE_APP_TRANSFEROUTFROMWALLET_SERVICE_API_URL || "https://personal-hvvfag03.outsystemscloud.com/TransferOutFromWallet/rest/TransferOutFromWallet";
 
 export async function fetchTransactionData(accountNum, startDate, endDate) {
   // Create query parameters using URLSearchParams
@@ -644,5 +647,47 @@ export async function splitTransferFunds(transferReq) {
   catch(err){
     console.error("Unable to transfer funds because: " + err);
     throw err;
+  }
+}
+
+export async function transferOutFromWallet(transferOutData) {
+  try {
+    const response = await axios.post(
+      `${transferOutFromWalletUrl}/TransferOutFromWallet`,
+      {
+        WalletId: transferOutData.walletId,
+        Amount: parseFloat(transferOutData.amount),
+        RecipientIdentifier: transferOutData.recipientIdentifier || "",
+        RecipientIdentifierType: transferOutData.recipientIdentifierType || "",
+        Narrative: transferOutData.narrative || "",
+        PerformedBy: transferOutData.performedByAccountId ? String(transferOutData.performedByAccountId) : (transferOutData.performedBy || ""), // AccountId as string to identify member
+        TransactionDate: transferOutData.transactionDate || new Date().toISOString(),
+      },
+      {
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const data = response.data || {};
+    const output = data.TransferOutFromWalletOutput || data.Output || data;
+
+    return {
+      success: output?.Success === true || output?.success === true,
+      message: output?.Message || output?.message || "",
+      updatedBalance: output?.UpdatedBalance ?? output?.updatedBalance ?? null,
+    };
+  } catch (error) {
+    console.error("Transfer out error:", error.response?.data || error.message);
+    const errorData = error.response?.data || {};
+    const output = errorData.TransferOutFromWalletOutput || errorData.Output || errorData;
+    
+    return {
+      success: false,
+      message: output?.Message || output?.message || error.message || "Failed to transfer out from wallet.",
+      updatedBalance: 0,
+    };
   }
 }
