@@ -218,6 +218,7 @@
             <span class="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100">
               <i v-if="item.category === 'Food'" class="fas fa-utensils text-red-500 text-2xl"></i>
               <i v-else-if="item.category === 'Transportation'" class="fas fa-bus text-blue-500 text-2xl"></i>
+              <i v-else-if="item.category === 'Entertainment'" class="fas fa-film text-purple-500 text-2xl"></i>
               <i v-else class="fas fa-circle text-gray-500 text-2xl"></i>
             </span>
 
@@ -1297,9 +1298,10 @@ export default {
       }
 
       const categoryKeywords = {
-        Food: ['mcdonald', 'kfc', 'burger', 'restaurant', 'foodpanda', 'grabfood', 'dinner', 'lunch', 'breakfast'],
-        Transportation: ['mrt', 'bus', 'grab', 'taxi', 'ezlink', 'ride', 'train'],
-        Shopping: ['shopee', 'lazada', 'uniqlo', 'zara', 'mall', 'store', 'retail', 'clothes', 'fashion'],
+        Food: ['mcdonald', 'kfc', 'burger', 'restaurant', 'foodpanda', 'grabfood', 'dinner', 'lunch', 'breakfast', 'pizza', 'sushi', 'cafe', 'coffee', 'starbucks', 'food', 'meal', 'snack'],
+        Transportation: ['mrt', 'bus', 'grab', 'taxi', 'ezlink', 'ride', 'train', 'uber', 'car', 'fuel', 'petrol', 'parking', 'transport', 'subway', 'metro', 'ferry', 'boat'],
+        Shopping: ['shopee', 'lazada', 'uniqlo', 'zara', 'mall', 'store', 'retail', 'clothes', 'fashion', 'amazon', 'online', 'purchase', 'buy', 'marketplace', 'ecommerce', 'apparel', 'shopping'],
+        Entertainment: ['netflix singapore', 'netflix', 'spotify', 'disney', 'disney+', 'cinema', 'movie', 'theater', 'theatre', 'concert', 'ticket', 'entertainment', 'youtube', 'premium', 'streaming', 'show', 'event'],
       };
 
       const monthlyData = {};
