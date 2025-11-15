@@ -618,14 +618,12 @@ export default {
     },
 
     async handleSelectExpense(expense) {
-
-      // ======================================== UPDATE THIS =============================================================================
       await splitTransferFunds({
-        consumerIdFrom: this.accountDetails.CustomerId,
-        amount: expense.SplitAmount,
-        consumerIdTo:"0000002583"//expense.PaidByMemberId
-      });
-      console.log('Selected expense to pay:', expense);
+        CustomerId: this.accountDetails.CustomerId,
+        ExpenseId: expense.ExpenseId
+      }).then((data)=>{
+        console.log(data)
+      })
       this.closePaySplitExpenseModal();
     },
 
