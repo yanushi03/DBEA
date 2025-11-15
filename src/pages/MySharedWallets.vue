@@ -81,8 +81,13 @@
                   <h3 class="text-lg font-semibold text-navy-900">{{ wallet.Name }}</h3>
                   <p class="text-sm text-navy-500 mt-1">Wallet ID: {{ wallet.WalletId }}</p>
                 </div>
-                <div class="px-3 py-1 rounded-full bg-navy-50 text-sm font-medium text-navy-700">
-                  Active
+                <div :class="[
+                  'px-3 py-1 rounded-full text-sm font-medium',
+                  getWalletStatus(wallet) === 'active'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                ]">
+                  {{ getWalletStatus(wallet) === 'active' ? 'Active' : 'Inactive' }}
                 </div>
               </div>
               <div class="mt-6">
@@ -171,7 +176,7 @@
 </template>
 
 <script>
-import { getWalletList, createWallet as createWalletApi, getAccountDetails as fetchAccountDetails, sendNotifications } from "../api/outsystems";
+import { getWalletList, createWallet as createWalletApi, getAccountDetails as fetchAccountDetails, sendNotifications, getWallet } from "../api/outsystems";
 import { getAccountId } from "../router/auth";
 
 export default {
@@ -211,7 +216,41 @@ export default {
 
       try {
         const response = await getWalletList(accountId);
-        this.wallets = Array.isArray(response) ? response : [];
+        const walletsArray = Array.isArray(response) ? response : [];
+        
+        const firstWallet = walletsArray[0];
+        const hasStatus = firstWallet && (firstWallet.Status || firstWallet.status);
+        
+        if (!hasStatus && walletsArray.length > 0) {
+          const walletsWithStatus = await Promise.all(
+            walletsArray.map(async (wallet) => {
+              try {
+                const walletData = await getWallet(wallet.WalletId);
+                const details = walletData?.GetWalletDetails ?? {};
+                const status = (details.Status || details.status || "active").toLowerCase();
+                return {
+                  ...wallet,
+                  Status: status,
+                  status: status
+                };
+              } catch (error) {
+                console.error(`Failed to fetch status for wallet ${wallet.WalletId}:`, error);
+                return {
+                  ...wallet,
+                  Status: 'active',
+                  status: 'active'
+                };
+              }
+            })
+          );
+          this.wallets = walletsWithStatus;
+        } else {
+          this.wallets = walletsArray.map(wallet => ({
+            ...wallet,
+            Status: (wallet.Status || wallet.status || 'active').toLowerCase(),
+            status: (wallet.Status || wallet.status || 'active').toLowerCase()
+          }));
+        }
       } catch (err) {
         console.error("Failed to load wallet list:", err);
         this.error = "Unable to load your wallets right now. Please try again later.";
@@ -357,6 +396,9 @@ export default {
         style: "currency",
         currency: "USD",
       }).format(Number.isNaN(numericAmount) ? 0 : numericAmount);
+    },
+    getWalletStatus(wallet) {
+      return wallet.Status || wallet.status || 'active';
     },
     goToWallet(walletId) {
       this.$router.push({ name: "WalletDetails", params: { walletId } });

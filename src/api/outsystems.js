@@ -691,3 +691,25 @@ export async function transferOutFromWallet(transferOutData) {
     };
   }
 }
+
+//--------------------- UPDATE WALLET STATUS ---------------------------------//
+export async function updateWalletStatus(walletId, status) {
+  try {
+    const response = await axios.put(
+      `${walletAPIUrl}/UpdateWalletStatus?walletId=${walletId}`,
+      {
+        status: status,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (err) {
+    console.error("Unable to update wallet status because: " + err);
+    throw err;
+  }
+}
+//--------------------- END OF UPDATE WALLET STATUS ---------------------------------//

@@ -1,5 +1,19 @@
 <template>
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Inactive Wallet Warning Banner -->
+    <div v-if="walletStatus === 'inactive'" class="mb-6 bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-md">
+      <div class="flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd"
+            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+            clip-rule="evenodd" />
+        </svg>
+        <p class="font-medium">
+          This wallet is currently inactive. All wallet actions are disabled. 
+          <span v-if="isOwner">You can reactivate it using the button above.</span>
+        </p>
+      </div>
+    </div>
     <!-- Error Message Banner -->
     <div v-if="errorMessage" class="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md">
       <div class="flex items-center justify-between">
@@ -60,21 +74,47 @@
               </svg>
             </button>
           </div>
+          <!-- Wallet Status Badge -->
+          <div class="mt-4">
+            <span :class="[
+              'px-3 py-1 rounded-full text-sm font-medium',
+              walletStatus === 'active' 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-red-100 text-red-700'
+            ]">
+              {{ walletStatus === 'active' ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
         </div>
-        <div class="flex gap-3 items-start">
-          <button v-if="isOwner"
+        <div class="flex gap-3 items-start flex-wrap">
+          <!-- Status Toggle Button (Owner Only) -->
+          <button 
+            v-if="isOwner"
+            class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-colors backdrop-blur-sm flex items-center gap-2"
+            @click="toggleWalletStatus" 
+            :disabled="updatingStatus || !walletId">
+            <i v-if="updatingStatus" class="fas fa-spinner fa-spin"></i>
+            <i v-else-if="walletStatus === 'active'" class="fas fa-pause"></i>
+            <i v-else class="fas fa-play"></i>
+            {{ walletStatus === 'active' ? 'Deactivate Wallet' : 'Activate Wallet' }}
+          </button>
+          <button 
+            v-if="isOwner"
             class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-medium transition-colors backdrop-blur-sm"
-            @click="openModal" :disabled="!walletId">
+            @click="openModal" 
+            :disabled="!walletId || walletStatus === 'inactive'">
             Add Member
           </button>
           <button
-            class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors backdrop-blur-sm"
-            @click="openTopUpModal">
+            class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="openTopUpModal"
+            :disabled="walletStatus === 'inactive'">
             Add Funds to Wallet
           </button>
           <button
-            class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors backdrop-blur-sm"
-            @click="openTransferOutModal">
+            class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-medium transition-colors backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="openTransferOutModal"
+            :disabled="walletStatus === 'inactive'">
             Transfer Out
           </button>
 
@@ -390,7 +430,7 @@
 
 <script>
 import ModalComponent from "./ModalComponent.vue";
-import { getUsers, addMember, getWallet, getCustomerByPhone, getCustomerByAccountId, sendNotifications, topUpWallet, getWalletTransactions, getAccountDetails, updateWalletBalance, transferFunds, transferOutFromWallet } from "@/api/outsystems";
+import { getUsers, addMember, getWallet, getCustomerByPhone, getCustomerByAccountId, sendNotifications, topUpWallet, getWalletTransactions, getAccountDetails, updateWalletBalance, transferFunds, transferOutFromWallet, updateWalletStatus } from "@/api/outsystems";
 import { getAccountId } from "../router/auth";
 
 export default {
@@ -406,6 +446,7 @@ export default {
       walletId: null,
       walletBalance: 0,
       walletDetails: {},
+      walletStatus: "active", // "active" or "inactive"
       members: [],
       accounts: [],
       showModal: false,
@@ -432,7 +473,8 @@ export default {
       transferOutError: null,
       transferOutRecipientType: "phone", // "phone" or "accountId"
       transferOutRecipient: "",
-      recipientName: null
+      recipientName: null,
+      updatingStatus: false
     };
   },
   computed: {
@@ -507,6 +549,11 @@ export default {
     },
 
     async confirmTopUp() {
+      if (this.walletStatus === 'inactive') {
+        this.errorMessage = "Cannot top up an inactive wallet. Please activate the wallet first.";
+        this.showConfirmModal = false;
+        return;
+      }
       this.showConfirmModal = false;
       this.loading = true;
       this.topUpLoading = true;
@@ -656,7 +703,7 @@ export default {
       this.sharedBalanceVisible = !this.sharedBalanceVisible;
     },
     openModal() {
-      if (!this.isOwner) {
+      if (!this.isOwner || this.walletStatus === 'inactive') {
         return;
       }
       this.errorMessage = "";
@@ -669,7 +716,7 @@ export default {
       // Keep error message visible after closing modal
     },
     async openTopUpModal() {
-      if (!this.walletId) return;
+      if (!this.walletId || this.walletStatus === 'inactive') return;
       await this.loadWallet(this.walletId);
       this.showTopUpModal = true;
     },
@@ -678,7 +725,7 @@ export default {
       this.topUpBal = "";
     },
     async openTransferOutModal() {
-      if (!this.walletId) return;
+      if (!this.walletId || this.walletStatus === 'inactive') return;
       await this.loadWallet(this.walletId);
       this.transferOutError = null;
       this.transferOutAmount = "";
@@ -715,6 +762,11 @@ export default {
 
       if (!this.walletId) {
         this.transferOutError = "Wallet ID is missing.";
+        return;
+      }
+
+      if (this.walletStatus === 'inactive') {
+        this.transferOutError = "Cannot transfer out from an inactive wallet. Please activate the wallet first.";
         return;
       }
 
@@ -880,7 +932,10 @@ export default {
       }
     },
     async addMemberToWallet() {
-      if (!this.walletId) {
+      if (!this.walletId || this.walletStatus === 'inactive') {
+        if (this.walletStatus === 'inactive') {
+          this.errorMessage = "Cannot add members to an inactive wallet. Please activate the wallet first.";
+        }
         return;
       }
       this.errorMessage = "";
@@ -929,6 +984,7 @@ export default {
         const details = data?.GetWalletDetails ?? {};
         this.walletName = details.Name ?? "Untitled Wallet";
         this.walletBalance = details.Balance ?? 0;
+        this.walletStatus = (details.Status || details.status || "active").toLowerCase();
         const members = Array.isArray(details.Members) ? details.Members : [];
         this.members = members.map((member) => {
           const fullName = member.Fullname || member.FullName || "Unknown User";
@@ -953,6 +1009,42 @@ export default {
         this.error = "We couldn't load the wallet details. Please try again later.";
       } finally {
         this.loadingWallet = false;
+      }
+    },
+    async toggleWalletStatus() {
+      if (!this.walletId || !this.isOwner) {
+        return;
+      }
+
+      const newStatus = this.walletStatus === 'active' ? 'inactive' : 'active';
+      const confirmMessage = newStatus === 'inactive' 
+        ? 'Are you sure you want to deactivate this wallet? All wallet actions will be disabled until you reactivate it.'
+        : 'Are you sure you want to activate this wallet?';
+
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+
+      this.updatingStatus = true;
+      this.errorMessage = "";
+
+      try {
+        const response = await updateWalletStatus(this.walletId, newStatus);
+        
+        // Check if update was successful
+        if (response && (response.status === newStatus || response.Status === newStatus)) {
+          this.walletStatus = newStatus;
+          // Reload wallet to get updated status
+          await this.loadWallet(this.walletId);
+        } else {
+          this.errorMessage = "Failed to update wallet status. Please try again.";
+        }
+      } catch (error) {
+        console.error("Failed to update wallet status:", error);
+        this.errorMessage = error.response?.data?.Message || error.response?.data?.message || 
+                          error.message || "Failed to update wallet status. Please try again.";
+      } finally {
+        this.updatingStatus = false;
       }
     },
     async fetchUsers() {
