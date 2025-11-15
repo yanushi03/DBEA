@@ -10,11 +10,6 @@
 
               <h1 class="text-4xl font-bold">
                 {{ balanceVisible ? balance : hiddenBalance }}
-                <span v-if="balanceVisible"
-                  :class="balanceDifference > 0 ? 'text-green-500' : balanceDifference < 0 ? 'text-red-500' : 'text-gray-500'"
-                  class="ml-3 text-xl font-semibold">
-                  ({{ balanceDiffString }})
-                </span>
               </h1>
 
               <button class="p-2 hover:bg-navy-700 rounded-lg transition-colors" @click="toggleBalance">
@@ -55,7 +50,11 @@
                   </path>
                 </svg>
               </div>
-              <span class="text-navy-300 text-sm">Income</span>
+              <span class="text-navy-300 text-sm">Income
+                <span class="bg-navy-200 text-navy-700 text-xs font-semibold px-2 py-0.5 rounded-full ml-1">
+                  This month
+                </span>
+              </span>
             </div>
             <p class="text-2xl font-bold">{{ income }}</p>
           </div>
@@ -67,7 +66,11 @@
                   </path>
                 </svg>
               </div>
-              <span class="text-navy-300 text-sm">Expenses</span>
+              <span class="text-navy-300 text-sm">Expenses
+                <span class="bg-navy-200 text-navy-700 text-xs font-semibold px-2 py-0.5 rounded-full ml-1">
+                  This month
+                </span>
+              </span>
             </div>
             <p class="text-2xl font-bold">{{ expenses }}</p>
           </div>
@@ -107,9 +110,6 @@
             <h2 class="text-2xl font-bold text-navy-900">
               Transaction History
             </h2>
-            <button class="text-navy-600 hover:text-navy-900 text-sm font-medium">
-              View All
-            </button>
           </div>
 
           <!-- Date Range Fields -->
@@ -503,9 +503,11 @@ export default {
       transferAmount: '',
       transferError: null,
       isTransferring: false,
+
     };
 
   },
+
   // Used to fetch data from api
   mounted() {
     this.getAccountDetails(this.currentAccNumber)
@@ -578,14 +580,6 @@ export default {
       console.log(this.balance)
       return this.transactionSum - this.balance.replace(/[\$]/g, '');
     },
-    balanceDiffString() {
-      if (this.balanceDifference > 0) {
-        return `+${this.balanceDifference.toFixed(2)}`;
-      } else if (this.balanceDifference < 0) {
-        return `${this.balanceDifference.toFixed(2)}`;
-      }
-      return '0.00';
-    }
   },
   methods: {
     nextPage() {
@@ -621,7 +615,7 @@ export default {
       await splitTransferFunds({
         CustomerId: this.accountDetails.CustomerId,
         ExpenseId: expense.ExpenseId
-      }).then((data)=>{
+      }).then((data) => {
         console.log(data)
       })
       this.closePaySplitExpenseModal();
@@ -951,7 +945,7 @@ export default {
         // Notification to recipient (person who received the funds)
         const recipientEmail = recipient.Email || recipient.email;
         const recipientPhone = recipient.PhoneNumber || recipient.phoneNumber || Number(this.transferRecipient);
-        
+
         if (recipientEmail || recipientPhone) {
           const recipientSubject = `Fund Transfer Received: $${amountFormatted} 💰`;
           const recipientEmailBody = `Hello ${recipientName},\n\nYou have received a fund transfer of $${amountFormatted} from ${senderName}.\n\nTransaction completed successfully🏦.\n\nThank you!`;
@@ -975,7 +969,7 @@ export default {
         // Notification to sender (person who sent the funds)
         const senderEmail = this.accountDetails?.Email || this.accountDetails?.email;
         const senderPhone = this.accountDetails?.PhoneNumber || this.accountDetails?.phoneNumber;
-        
+
         if (senderEmail || senderPhone) {
           const senderSubject = `Fund Transfer Sent: $${amountFormatted} 💸`;
           const senderEmailBody = `Hello ${senderName},\n\nYou have successfully transferred $${amountFormatted} to ${recipientName}.\n\nTransaction completed successfully.\n\nThank you for using our service! 🏦`;
