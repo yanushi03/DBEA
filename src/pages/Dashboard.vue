@@ -413,6 +413,13 @@
       </div>
     </main>
 
+
+    <!-- Success Alert -->
+    <div v-if="showSuccessAlert"
+      class="fixed bottom-8 right-8 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[1300] transition">
+      Transfer successful!
+    </div>
+
     <!-- Transfer Modal -->
     <ModalComponent v-if="showTransferModal" modalTitle="Transfer Funds">
       <div class="space-y-3">
@@ -496,6 +503,9 @@ export default {
       splitExpenses: [], // Store split expenses
       loadingSplitExpenses: false,
       showPaySplitExpenseModal: false,
+      isGlobalLoading: false,   // loading after modal closed
+      showSuccessAlert: false,
+
 
       // Transfer modal state
       showTransferModal: false,
@@ -612,13 +622,24 @@ export default {
     },
 
     async handleSelectExpense(expense) {
-      await splitTransferFunds({
-        CustomerId: this.accountDetails.CustomerId,
-        ExpenseId: expense.ExpenseId
-      }).then((data) => {
-        console.log(data)
-      })
-      this.closePaySplitExpenseModal();
+      const confirmed = window.confirm("Are you sure you want to split and transfer funds for this expense?");
+      if (!confirmed) return;
+
+      this.closePaySplitExpenseModal(); // Close modal instantly
+      this.loadingSplitExpenses = true;      // Show loading overlay
+
+      try {
+        await splitTransferFunds({
+          CustomerId: this.accountDetails.CustomerId,
+          ExpenseId: expense.ExpenseId
+        });
+        // When transfer resolves, show success
+        this.loadingSplitExpenses = false;
+        alert("Your split expense transfer was successful!")
+      } catch (e) {
+        this.loadingSplitExpenses = false;
+        alert("Your split expense transfer failed, please try again")
+      }
     },
 
     async handleSplitConfirm(splitData) {
