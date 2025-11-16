@@ -481,7 +481,6 @@
 import { fetchTransactionData, getAccountDetails as fetchAccountDetails, transferFunds, createExpense, getMySplitExpense, sendNotifications, splitTransferFunds } from "@/api/outsystems";
 import { formatDate } from "../utils/date";
 import { getAccountId } from "../router/auth";
-import { addLeadingZeros } from "../utils/idFormatter";
 import SplitExpenseModal from "./SplitExpenseModal.vue";
 import PaySplitExpenseModal from "./PaySplitExpenseModal.vue";
 import ModalComponent from "./ModalComponent.vue";
@@ -733,9 +732,6 @@ export default {
           return;
         }
 
-        // Standardize customer IDs to include leading zeros (10 digits)
-        paidByMemberId = addLeadingZeros(paidByMemberId, 10);
-
         // Build SplitDetails array
         const splitDetails = splitData.phoneNumbers.map(phone => {
           let memberId = phone.memberId || phone.customerId || phone.id;
@@ -743,9 +739,6 @@ export default {
             console.warn('Missing MemberId for phone number:', phone.number);
             return null;
           }
-
-          // Standardize customer IDs to include leading zeros (10 digits)
-          memberId = addLeadingZeros(memberId, 10);
 
           const percentage = (1 / splitData.totalPeople) * 100; // Equal split percentage
 
@@ -1190,9 +1183,6 @@ export default {
           this.accountDetails?.Id ||
           this.currentAccNumber;
 
-        // Standardize customer ID to include leading zeros (10 digits)
-        customerId = addLeadingZeros(customerId, 10);
-
         console.log('Fetching split expenses for CustomerId:', customerId);
         console.log('Account Details:', this.accountDetails);
         console.log('Original CustomerId value:', this.accountDetails?.CustomerId || this.accountDetails?.Id || this.currentAccNumber);
@@ -1204,19 +1194,66 @@ export default {
 
         // Map the API response structure to frontend structure
         if (response && response.SplitExpenses && Array.isArray(response.SplitExpenses) && response.SplitExpenses.length > 0) {
+          // Deduplicate expenses by ExpenseId - API may return same expense multiple times (once per split transaction)
+          const expenseMap = new Map();
+          response.SplitExpenses.forEach(expense => {
+            const expenseId = expense.ExpenseId;
+            if (expenseId && !expenseMap.has(expenseId)) {
+              // Keep the first occurrence of each ExpenseId
+              expenseMap.set(expenseId, expense);
+            } else if (expenseId && expenseMap.has(expenseId)) {
+              // If we already have this expense, merge SplitWith arrays if they exist
+              const existingExpense = expenseMap.get(expenseId);
+              if (expense.SplitWith && Array.isArray(expense.SplitWith)) {
+                // Merge SplitWith arrays, avoiding duplicates by MemberId
+                const existingMemberIds = new Set((existingExpense.SplitWith || []).map(s => s.MemberId));
+                expense.SplitWith.forEach(split => {
+                  if (!existingMemberIds.has(split.MemberId)) {
+                    if (!existingExpense.SplitWith) {
+                      existingExpense.SplitWith = [];
+                    }
+                    existingExpense.SplitWith.push(split);
+                    existingMemberIds.add(split.MemberId);
+                  }
+                });
+              }
+            }
+          });
+          
+          // Convert map values to array for processing
+          const uniqueExpenses = Array.from(expenseMap.values());
+          
+          console.log('Original expenses count:', response.SplitExpenses.length);
+          console.log('Deduplicated expenses count:', uniqueExpenses.length);
+          
           // Transform the response to match frontend expectations
-          this.splitExpenses = response.SplitExpenses.map(expense => {
-            // Try to find the original transaction to get its narrative/description
+          this.splitExpenses = uniqueExpenses.map(expense => {
+            // Try to get the description from multiple sources
             let transactionDescription = expense.Description;
 
-            // If Description is empty, try to find the original transaction
+            // If Description is empty, try to extract from Notes first (available for all users)
             if (!transactionDescription || transactionDescription.trim() === '') {
-              // Look for transaction in allTransactions or transactions array
+              if (expense.Notes) {
+                // Try multiple patterns to extract description from Notes
+                let notesMatch = expense.Notes.match(/Split expense for transaction:\s*(.+)/i);
+                if (!notesMatch) {
+                  // Try alternative pattern without "for transaction:"
+                  notesMatch = expense.Notes.match(/Split expense:\s*(.+)/i);
+                }
+                if (!notesMatch && expense.Notes.trim()) {
+                  // If Notes doesn't match pattern but has content, use it directly
+                  // (in case the format changed or Notes contains the description directly)
+                  transactionDescription = expense.Notes.trim();
+                } else if (notesMatch && notesMatch[1]) {
+                  transactionDescription = notesMatch[1].trim();
+                }
+              }
+            }
+
+            // If still empty, try to find the original transaction (only works for creator)
+            if (!transactionDescription || transactionDescription.trim() === '') {
               const bankTransactionId = expense.BankTransactionId;
               if (bankTransactionId) {
-                // Standardize BankTransactionId for comparison
-                const normalizedBankId = addLeadingZeros(bankTransactionId, 10);
-
                 // Helper function to find transaction in an array
                 const findTransactionInArray = (txArray) => {
                   return txArray.find(tx => {
@@ -1224,11 +1261,8 @@ export default {
                     const txId = tx.transactionId || tx.id || tx.TransactionId || tx.transactionID;
                     if (!txId) return false;
 
-                    // Normalize both IDs for comparison
-                    const normalizedTxId = addLeadingZeros(txId, 10);
-                    return normalizedTxId === normalizedBankId ||
-                      txId.toString() === bankTransactionId.toString() ||
-                      normalizedTxId === bankTransactionId.toString();
+                    // Direct comparison of IDs
+                    return txId.toString() === bankTransactionId.toString();
                   });
                 };
 
@@ -1242,27 +1276,16 @@ export default {
                   transactionDescription = originalTransaction.narrative || originalTransaction.description || originalTransaction.Description || '';
                   console.log('Found original transaction:', {
                     bankTransactionId,
-                    normalizedBankId,
                     narrative: transactionDescription,
                     transactionId: originalTransaction.transactionId || originalTransaction.id || originalTransaction.TransactionId
                   });
                 } else {
-                  console.log('Could not find original transaction for BankTransactionId:', bankTransactionId, 'normalized:', normalizedBankId);
+                  console.log('Could not find original transaction for BankTransactionId:', bankTransactionId);
                   if (this.allTransactions.length > 0) {
                     console.log('Sample transactions:', this.allTransactions.slice(0, 3).map(tx => ({
                       id: tx.transactionId || tx.id || tx.TransactionId,
                       narrative: tx.narrative
                     })));
-                  }
-                }
-              }
-
-              // If still empty, try to extract from Notes
-              if (!transactionDescription || transactionDescription.trim() === '') {
-                if (expense.Notes) {
-                  const notesMatch = expense.Notes.match(/Split expense for transaction:\s*(.+)/i);
-                  if (notesMatch && notesMatch[1]) {
-                    transactionDescription = notesMatch[1].trim();
                   }
                 }
               }
