@@ -10,7 +10,7 @@
         </svg>
         <p class="font-medium">
           This wallet is currently inactive. All wallet actions are disabled. 
-          <span v-if="isOwner">You can reactivate it using the button above.</span>
+          <span v-if="isOwner">You can reactivate it using the button 'Activate Wallet'.</span>
         </p>
       </div>
     </div>
@@ -877,9 +877,9 @@ export default {
             const senderPhone = accountDetails?.PhoneNumber || accountDetails?.MobileNumber || accountDetails?.phone;
             
             if (senderEmail || senderPhone) {
-              const senderSubject = `Wallet Transfer Out: $${amountFormatted} 💸`;
-              const senderEmailBody = `Hello ${senderName},\n\nYou have successfully transferred out $${amountFormatted} from the wallet "${this.walletName}" to ${recipientName}.\n\nNew wallet balance: ${this.formatCurrency(this.walletBalance)}\n\nThank you! 🏦`;
-              const senderSmsBody = `Hello ${senderName},\n\nYou transferred out $${amountFormatted} from "${this.walletName}" to ${recipientName}.\nNew balance: ${this.formatCurrency(this.walletBalance)}`;
+              const senderSubject = `Wallet: ${this.walletName}`;
+              const senderEmailBody = `Hello ${senderName || 'there'},\n\n$${amountFormatted} sent to ${recipientName} from ${this.walletName} (ID: ${this.walletId || 'N/A'}).\n\nWallet balance: ${this.formatCurrency(this.walletBalance)}\n\nThank you.`;
+              const senderSmsBody = `Hello ${senderName || 'there'},\n\n$${amountFormatted} sent to ${recipientName} from ${this.walletName} (ID: ${this.walletId || 'N/A'}).\n\nWallet balance: ${this.formatCurrency(this.walletBalance)}\n\nThank you.`;
 
               await sendNotifications({
                 receipientEmail: senderEmail,
@@ -900,9 +900,9 @@ export default {
             const recipientPhone = recipient.PhoneNumber || recipient.phoneNumber;
             
             if (recipientEmail || recipientPhone) {
-              const recipientSubject = `Fund Transfer Received: $${amountFormatted} 💰`;
-              const recipientEmailBody = `Hello ${recipientName},\n\nYou have received a fund transfer of $${amountFormatted} from ${senderName} (from wallet "${this.walletName}").\n\nTransaction completed successfully🏦.\n\nThank you!`;
-              const recipientSmsBody = `Hello ${recipientName},\n\nYou received $${amountFormatted} from ${senderName} (from wallet "${this.walletName}").\nTransaction completed successfully.`;
+              const recipientSubject = `Wallet: ${this.walletName}`;
+              const recipientEmailBody = `Hello ${recipientName || 'there'},\n\n$${amountFormatted} received from ${senderName} from ${this.walletName} (ID: ${this.walletId || 'N/A'}).\n\nThank you.`;
+              const recipientSmsBody = `Hello ${recipientName || 'there'},\n\n$${amountFormatted} received from ${senderName} from ${this.walletName} (ID: ${this.walletId || 'N/A'}).\n\nThank you.`;
 
               await sendNotifications({
                 receipientEmail: recipientEmail,
@@ -1096,9 +1096,9 @@ export default {
         return;
       }
 
-      const subject = `You've been added to ${walletName}`;
-      const emailBody = `Hello ${recipientName},\n\nYou've been added to a shared wallet: "${walletName}" by ${inviterName}.\n\nPlease sign in to your account to review and manage your wallet.\n\nThank you`;
-      const smsBody = `Hello ${recipientName},\n\nYou've been added to a shared wallet: "${walletName}" by ${inviterName}.\nCheck your account to view details.`;
+      const subject = `Wallet: ${walletName}`;
+      const emailBody = `Hello ${recipientName || 'there'},\n\n${walletName} (ID: ${this.walletId || 'N/A'}) is now available in your account!`;
+      const smsBody = `Hello ${recipientName || 'there'},\n\n${walletName} (ID: ${this.walletId || 'N/A'}) is now available in your account!`;
 
       try {
         await sendNotifications({
@@ -1124,9 +1124,9 @@ export default {
       }
 
       const formattedAmount = `$${amount.toFixed(2)}`;
-      const subject = `Wallet Top-Up Successful: ${walletName}`;
-      const emailBody = `Hello ${recipientName},\n\nYou have successfully added ${formattedAmount} to the shared wallet "${walletName}".\n\nThe wallet balance has been updated.\n\nThank you`;
-      const smsBody = `Hello ${recipientName},\n\nYour wallet top-up was successful!\nYou added ${formattedAmount} to "${walletName}".\nCheck your account for details.`;
+      const subject = `Wallet: ${walletName}`;
+      const emailBody = `Hello ${recipientName || 'there'},\n\n${formattedAmount} added to ${walletName} (ID: ${this.walletId || 'N/A'}). \n\nNew balance: ${this.formatCurrency(this.walletBalance)}\n\nThank you.`;
+      const smsBody = `Hello ${recipientName || 'there'},\n\n${formattedAmount} added to ${walletName} (ID: ${this.walletId || 'N/A'}). \n\nNew balance: ${this.formatCurrency(this.walletBalance)}\n\nThank you.`;
 
       try {
         await sendNotifications({

@@ -77,9 +77,19 @@
               @click="goToWallet(wallet.WalletId)"
             >
               <div class="flex items-start justify-between">
-                <div>
-                  <h3 class="text-lg font-semibold text-navy-900">{{ wallet.Name }}</h3>
-                  <p class="text-sm text-navy-500 mt-1">Wallet ID: {{ wallet.WalletId }}</p>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <h3 class="text-lg font-semibold text-navy-900">{{ wallet.Name }}</h3>
+                    <span
+                      v-if="wallet.isOwner"
+                      class="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 flex items-center gap-1"
+                      title="You are the owner of this wallet"
+                    >
+                      <i class="fas fa-crown"></i>
+                      Owner
+                    </span>
+                  </div>
+                  <p class="text-sm text-navy-500">Wallet ID: {{ wallet.WalletId }}</p>
                 </div>
                 <div :class="[
                   'px-3 py-1 rounded-full text-sm font-medium',
@@ -229,28 +239,62 @@ export default {
                 const walletData = await getWallet(wallet.WalletId);
                 const details = walletData?.GetWalletDetails ?? {};
                 const status = (details.Status || details.status || "active").toLowerCase();
+                const members = Array.isArray(details.Members) ? details.Members : [];
+                const isOwner = members.some(
+                  (member) => 
+                    (member.Role === "Owner" || member.role === "Owner") &&
+                    (member.AccountId === accountId || member.accountId === accountId)
+                );
                 return {
                   ...wallet,
                   Status: status,
-                  status: status
+                  status: status,
+                  isOwner: isOwner
                 };
               } catch (error) {
                 console.error(`Failed to fetch status for wallet ${wallet.WalletId}:`, error);
                 return {
                   ...wallet,
                   Status: 'active',
-                  status: 'active'
+                  status: 'active',
+                  isOwner: false
                 };
               }
             })
           );
           this.wallets = walletsWithStatus;
         } else {
-          this.wallets = walletsArray.map(wallet => ({
-            ...wallet,
-            Status: (wallet.Status || wallet.status || 'active').toLowerCase(),
-            status: (wallet.Status || wallet.status || 'active').toLowerCase()
-          }));
+          // Even if status exists, we still need to check ownership
+          // So we'll fetch wallet details to check ownership
+          const walletsWithOwnership = await Promise.all(
+            walletsArray.map(async (wallet) => {
+              try {
+                const walletData = await getWallet(wallet.WalletId);
+                const details = walletData?.GetWalletDetails ?? {};
+                const members = Array.isArray(details.Members) ? details.Members : [];
+                const isOwner = members.some(
+                  (member) => 
+                    (member.Role === "Owner" || member.role === "Owner") &&
+                    (member.AccountId === accountId || member.accountId === accountId)
+                );
+                return {
+                  ...wallet,
+                  Status: (wallet.Status || wallet.status || 'active').toLowerCase(),
+                  status: (wallet.Status || wallet.status || 'active').toLowerCase(),
+                  isOwner: isOwner
+                };
+              } catch (error) {
+                console.error(`Failed to fetch ownership for wallet ${wallet.WalletId}:`, error);
+                return {
+                  ...wallet,
+                  Status: (wallet.Status || wallet.status || 'active').toLowerCase(),
+                  status: (wallet.Status || wallet.status || 'active').toLowerCase(),
+                  isOwner: false
+                };
+              }
+            })
+          );
+          this.wallets = walletsWithOwnership;
         }
       } catch (err) {
         console.error("Failed to load wallet list:", err);
@@ -357,8 +401,10 @@ export default {
           null,
       };
     },
+
     async notifyWalletCreator({ walletName, walletId }) {
       if (!walletName) {
+        console.log("❌ No wallet name provided for notification");
         return;
       }
 
@@ -373,13 +419,12 @@ export default {
         return;
       }
 
-      const walletIdLine = walletId ? ` with ID ${walletId}` : "";
-      const subject = `Wallet created: ${walletName}`;
-      const emailBody = `Hello ${contact.name},\n\nYour wallet "${walletName}" has been created successfully!\n Wallet ID: ${walletIdLine}.\n\nYou can now add members and start managing expenses.\n\nThank you`;
-      const smsBody = `Hello ${contact.name}, \n\nYour wallet "${walletName}" has been created successfully! Wallet ID: ${walletId}.\nPlease review in your account.`;
+      const subject = `Wallet: ${walletName}`;
+      const emailBody = `Hello ${contact.name || 'there'},\n\n${walletName} (ID: ${walletId || 'N/A'}) is now available in your account!`;
+      const smsBody = `Hello ${contact.name || 'there'},\n\nYour wallet "${walletName}" has been created! ID: ${walletId || 'N/A'}.\nCheck your account for details.`;
 
       try {
-        await sendNotifications({
+        const results = await sendNotifications({
           receipientEmail: contact.email,
           subject,
           emailBody,
@@ -388,7 +433,7 @@ export default {
           notificationType: "WALLET_CREATED",
         });
       } catch (error) {
-        console.error("Failed to send wallet creation notification:", error);
+        console.error("❌ Failed to send wallet creation notification:", error);
       }
     },
     formatCurrency(amount) {

@@ -442,7 +442,7 @@ export async function sendNotifications({
 
   const tasks = [];
 
-  if (receipientEmail && emailBody) {
+  if (receipientEmail) {
     tasks.push(
       sendEmailNotification(
         receipientEmail,
@@ -465,7 +465,7 @@ export async function sendNotifications({
     );
   }
 
-  if (receipientPhoneNumber && smsBody) {
+  if (receipientPhoneNumber) {
     tasks.push(
       sendSMSNotification(
         receipientPhoneNumber,
