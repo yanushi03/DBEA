@@ -687,8 +687,8 @@ export default {
             const payerPhone = payerAccountDetails?.PhoneNumber || payerAccountDetails?.MobileNumber || payerAccountDetails?.phone || null;
 
             if (payerEmail || payerPhone) {
-              const subject = `Split Expense Payment Confirmed: ${expenseDescription} 💳`;
-              const emailBody = `Hello ${payerName},\n\nYour payment for the split expense "${expenseDescription}" has been successfully processed.\n\nExpense Date: ${expenseDateFormatted}\nTotal Amount: $${totalAmountFormatted}\nYour Share: $${splitAmountFormatted}\n\nThank you for settling this expense! 🏦`;
+              const subject = `Split expense: ${expenseDescription}`;
+              const emailBody = `Hello ${payerName}, your expense share has been recorded. \nAmount: $${splitAmountFormatted}. \nCheck your account for details.\n\nThank you!`;
               const smsBody = `Hello ${payerName},\n\nYour payment for "${expenseDescription}" was successful.\nDate: ${expenseDateFormatted}\nYour share: $${splitAmountFormatted}\nThank you!`;
 
               await sendNotifications({
@@ -697,7 +697,7 @@ export default {
                 emailBody,
                 receipientPhoneNumber: payerPhone,
                 smsBody,
-                notificationType: 'SPLIT_EXPENSE_PAYMENT_CONFIRMED'
+                notificationType: 'SPLIT_EXPENSE'
               });
             }
           } catch (accountErr) {
@@ -931,7 +931,7 @@ export default {
         emailBody,
         receipientPhoneNumber: payerContact.phone,
         smsBody,
-        notificationType: 'SPLIT_EXPENSE_PAYER'
+        notificationType: 'SPLIT_EXPENSE'
       });
     },
 
