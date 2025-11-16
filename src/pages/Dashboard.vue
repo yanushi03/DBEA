@@ -157,7 +157,8 @@
                     <p :class="['font-bold', tx.amountColor]">
                       {{ tx.transactionAmount }}
                     </p>
-                    <button v-if="tx.accountFrom == currentAccNumber && !isTransactionAlreadySplit(tx)" @click="splitExpense(tx)"
+                    <button v-if="tx.accountFrom == currentAccNumber && !isTransactionAlreadySplit(tx) && !isTransactionNarrativeSplitExpense(tx)"
+                      @click="splitExpense(tx)"
                       class="px-2 py-1 my-3 rounded-lg font-semibold bg-blue-500 text-white shadow transition transform hover:bg-blue-600 focus:outline-none text-sm">
                       Split Expenses
                     </button>
@@ -465,7 +466,8 @@
     </ModalComponent>
 
     <!-- Generic Confirm Modal (replaces window.confirm) -->
-    <ConfirmModal :isVisible="showConfirmDialog" :message="confirmDialogMessage" @confirm="confirmDialogConfirm" @cancel="confirmDialogCancel" />
+    <ConfirmModal :isVisible="showConfirmDialog" :message="confirmDialogMessage" @confirm="confirmDialogConfirm"
+      @cancel="confirmDialogCancel" />
 
     <!-- Split Expense Modal -->
     <SplitExpenseModal ref="splitExpenseModal" :isVisible="showSplitModal" :transaction="selectedTransaction"
@@ -623,6 +625,12 @@ export default {
         this.currentPage--;
       }
     },
+    isTransactionNarrativeSplitExpense(transaction) {
+    // Defensive: handle null/undefined
+    if (!transaction || !transaction.narrative) return false;
+    // Case-insensitive match is safer
+    return transaction.narrative.toLowerCase().includes("split expense");
+  },
 
     isTransactionAlreadySplit(transaction) {
       if (!transaction || !this.splitExpenses || this.splitExpenses.length === 0) {
@@ -631,6 +639,10 @@ export default {
 
       const txId = transaction.transactionId || transaction.id || transaction.TransactionId || transaction.transactionID;
       if (!txId) {
+        return false;
+      }
+
+      if (transaction.narrative && transaction.narrative.includes("Split Expense")) {
         return false;
       }
 
@@ -1218,9 +1230,9 @@ export default {
               }
             }
           });
-          
+
           const uniqueExpenses = Array.from(expenseMap.values());
-          
+
           this.splitExpenses = uniqueExpenses.map(expense => {
             let transactionDescription = expense.Description;
 
