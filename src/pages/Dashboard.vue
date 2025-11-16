@@ -435,6 +435,10 @@
           <input v-model="transferAmount" type="text" class="w-full mt-1 border border-navy-200 rounded px-3 py-2"
             placeholder="0.00" />
         </div>
+        <div>
+          <label class="text-sm font-medium text-navy-600">Remarks</label>
+          <input v-model="transferMsg" type="text" class="w-full mt-1 border border-navy-200 rounded px-3 py-2" />
+        </div>
 
         <div v-if="transferError" class="text-sm text-red-500">{{ transferError }}</div>
 
@@ -512,6 +516,7 @@ export default {
       showTransferModal: false,
       transferRecipient: '',
       transferAmount: '',
+      transferMsg: '',
       transferError: null,
       isTransferring: false,
 
@@ -634,29 +639,29 @@ export default {
           CustomerId: this.accountDetails.CustomerId,
           ExpenseId: expense.ExpenseId
         });
-        
+
         const accountId = getAccountId();
         if (accountId) {
           try {
             // Notify the payer
             const payerAccountDetails = await fetchAccountDetails(accountId);
-            
+
             const expenseDescription = expense.Description;
-            const expenseDateFormatted = expense.ExpenseDate 
+            const expenseDateFormatted = expense.ExpenseDate
               ? this.formatDateForNotification(expense.ExpenseDate)
               : this.formatDateForNotification(new Date().toLocaleString());
             const splitAmountFormatted = parseFloat(expense.SplitAmount || (expense.TotalAmount / expense.TotalPeople) || 0).toFixed(2);
             const totalAmountFormatted = parseFloat(expense.TotalAmount || 0).toFixed(2);
             const payerName = payerAccountDetails?.FullName || payerAccountDetails?.Name || payerAccountDetails?.customerName || 'Customer';
-            
+
             const payerEmail = payerAccountDetails?.Email || payerAccountDetails?.email || null;
             const payerPhone = payerAccountDetails?.PhoneNumber || payerAccountDetails?.MobileNumber || payerAccountDetails?.phone || null;
-            
+
             if (payerEmail || payerPhone) {
               const subject = `Split Expense Payment Confirmed: ${expenseDescription} 💳`;
               const emailBody = `Hello ${payerName},\n\nYour payment for the split expense "${expenseDescription}" has been successfully processed.\n\nExpense Date: ${expenseDateFormatted}\nTotal Amount: $${totalAmountFormatted}\nYour Share: $${splitAmountFormatted}\n\nThank you for settling this expense! 🏦`;
               const smsBody = `Hello ${payerName},\n\nYour payment for "${expenseDescription}" was successful.\nDate: ${expenseDateFormatted}\nYour share: $${splitAmountFormatted}\nThank you!`;
-              
+
               await sendNotifications({
                 receipientEmail: payerEmail,
                 subject,
@@ -670,7 +675,7 @@ export default {
             console.error('Failed to fetch account details for notification:', accountErr);
           }
         }
-        
+
         this.loadingSplitExpenses = false;
         alert("Your split expense transfer was successful!")
       } catch (e) {
@@ -946,6 +951,7 @@ export default {
     async openTransferPrompt() {
       this.transferRecipient = '';
       this.transferAmount = '';
+      this.transferMsg = '';
       this.transferError = null;
       this.showTransferModal = true;
     },
@@ -954,6 +960,7 @@ export default {
       this.showTransferModal = false;
       this.transferRecipient = '';
       this.transferAmount = '';
+      this.transferMsg = '';
       this.transferError = null;
       this.isTransferring = false;
     },
@@ -974,9 +981,14 @@ export default {
         this.transferError = 'Please enter a valid amount greater than 0.';
         return;
       }
+      let proceed = false;
 
-
-      const proceed = window.confirm(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName}?`);
+      if (this.transferMsg == "") {
+        proceed = window.confirm(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName}?`);
+        this.transferMsg = "Others"
+      } else {
+        proceed = window.confirm(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName} for ${this.transferMsg}?`);
+      }
 
       if (!proceed) return;
 
@@ -986,7 +998,8 @@ export default {
           accountIdFrom: this.currentAccNumber,
           consumerIdFrom: this.accountDetails.CustomerId,
           amount: amountVal,
-          phone: Number(this.transferRecipient)
+          phone: Number(this.transferRecipient),
+          narrative: this.transferMsg
         });
 
         // Send notifications to both sender and recipient
@@ -1184,7 +1197,7 @@ export default {
               SplitAmount: expense.SplitWith && expense.SplitWith.length > 0
                 ? expense.OriginalAmount / expense.SplitWith.length
                 : expense.OriginalAmount,
-              PaidByMemberId: expense.PaidByMemberId || expense.PaidByCustomerId || null, 
+              PaidByMemberId: expense.PaidByMemberId || expense.PaidByCustomerId || null,
               PaidByMemberName: expense.PaidByName || null, // Use PaidByName from API response
               CreatedDate: expense.ExpenseDate,
               ModifiedDate: expense.ExpenseDate,
