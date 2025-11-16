@@ -401,8 +401,10 @@ export default {
           null,
       };
     },
+
     async notifyWalletCreator({ walletName, walletId }) {
       if (!walletName) {
+        console.log("❌ No wallet name provided for notification");
         return;
       }
 
@@ -417,13 +419,12 @@ export default {
         return;
       }
 
-      const walletIdLine = walletId ? ` with ID ${walletId}` : "";
-      const subject = `Wallet created: ${walletName}`;
-      const emailBody = `Hello ${contact.name},\n\nYour wallet "${walletName}" has been created successfully!\n Wallet ID: ${walletIdLine}.\n\nYou can now add members and start managing expenses.\n\nThank you`;
-      const smsBody = `Hello ${contact.name}, \n\nYour wallet "${walletName}" has been created successfully! Wallet ID: ${walletId}.\nPlease review in your account.`;
+      const subject = `Wallet: ${walletName}`;
+      const emailBody = `Hello ${contact.name || 'there'},\n\n${walletName} (ID: ${walletId || 'N/A'}) is now available in your account!`;
+      const smsBody = `Hello ${contact.name || 'there'},\n\nYour wallet "${walletName}" has been created! ID: ${walletId || 'N/A'}.\nCheck your account for details.`;
 
       try {
-        await sendNotifications({
+        const results = await sendNotifications({
           receipientEmail: contact.email,
           subject,
           emailBody,
@@ -432,7 +433,7 @@ export default {
           notificationType: "WALLET_CREATED",
         });
       } catch (error) {
-        console.error("Failed to send wallet creation notification:", error);
+        console.error("❌ Failed to send wallet creation notification:", error);
       }
     },
     formatCurrency(amount) {
