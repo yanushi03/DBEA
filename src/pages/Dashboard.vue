@@ -480,7 +480,7 @@
 </template>
 
 <script>
-import { fetchTransactionData, getAccountDetails as fetchAccountDetails, transferFunds, createExpense, getMySplitExpense, sendNotifications, splitTransferFunds } from "@/api/outsystems";
+import { fetchTransactionData, getAccountDetails as fetchAccountDetails, transferFunds, createExpense, getMySplitExpense, sendNotifications, splitTransferFunds, getSplitExpenseById, getCustomerByCustId } from "@/api/outsystems";
 import { formatDate } from "../utils/date";
 import { getAccountId } from "../router/auth";
 import SplitExpenseModal from "./SplitExpenseModal.vue";
@@ -691,18 +691,18 @@ export default {
         });
 
         const accountId = getAccountId();
+        let payerName = 'Customer';
+        const expenseDescription = expense.Description;
+        const expenseDateFormatted = expense.ExpenseDate
+          ? this.formatDateForNotification(expense.ExpenseDate)
+          : this.formatDateForNotification(new Date().toLocaleString());
+        const splitAmountFormatted = parseFloat(expense.SplitAmount || (expense.TotalAmount / expense.TotalPeople) || 0).toFixed(2);
+        
         if (accountId) {
           try {
             // Notify the payer
             const payerAccountDetails = await fetchAccountDetails(accountId);
-
-            const expenseDescription = expense.Description;
-            const expenseDateFormatted = expense.ExpenseDate
-              ? this.formatDateForNotification(expense.ExpenseDate)
-              : this.formatDateForNotification(new Date().toLocaleString());
-            const splitAmountFormatted = parseFloat(expense.SplitAmount || (expense.TotalAmount / expense.TotalPeople) || 0).toFixed(2);
-            const totalAmountFormatted = parseFloat(expense.TotalAmount || 0).toFixed(2);
-            const payerName = payerAccountDetails?.FullName || payerAccountDetails?.Name || payerAccountDetails?.customerName || 'Customer';
+            payerName = payerAccountDetails?.FullName || payerAccountDetails?.Name || payerAccountDetails?.customerName || 'Customer';
 
             const payerEmail = payerAccountDetails?.Email || payerAccountDetails?.email || null;
             const payerPhone = payerAccountDetails?.PhoneNumber || payerAccountDetails?.MobileNumber || payerAccountDetails?.phone || null;
@@ -724,6 +724,47 @@ export default {
           } catch (accountErr) {
             console.error('Failed to fetch account details for notification:', accountErr);
           }
+        }
+
+        // Notify the expense owner (person who created the expense)
+        try {
+          // Get split expense details to find owner's CustomerId
+          const splitExpenseDetails = await getSplitExpenseById(
+            this.accountDetails.CustomerId,
+            expense.ExpenseId
+          );
+          
+          const ownerCustomerId = splitExpenseDetails?.PaidByCustomerId;
+          
+          // Only notify if owner is different from payer
+          if (ownerCustomerId && ownerCustomerId.trim() && ownerCustomerId !== this.accountDetails.CustomerId) {
+            // Get owner customer details using CustomerId
+            const ownerDetails = await getCustomerByCustId(ownerCustomerId.trim());
+            
+            if (ownerDetails) {
+              const ownerEmail = ownerDetails?.Email || null;
+              const ownerPhone = ownerDetails?.PhoneNumber || null;
+
+              if (ownerEmail || ownerPhone) {
+                const ownerName = ownerDetails?.FullName || expense.PaidByMemberName || 'Owner';
+                
+                const subject = `Split expense: ${expenseDescription}`;
+                const emailBody = `Hi ${ownerName},\n\n${payerName} paid $${splitAmountFormatted}".`;
+                const smsBody = `Hi ${ownerName},\n\n${payerName} paid $${splitAmountFormatted} for "${expenseDescription}".\nDate: ${expenseDateFormatted}`;
+
+                await sendNotifications({
+                  receipientEmail: ownerEmail,
+                  subject,
+                  emailBody,
+                  receipientPhoneNumber: ownerPhone,
+                  smsBody,
+                  notificationType: 'SPLIT_EXPENSE'
+                });
+              }
+            }
+          }
+        } catch (ownerErr) {
+          console.error('Failed to send notification to expense owner:', ownerErr);
         }
 
         this.loadingSplitExpenses = false;

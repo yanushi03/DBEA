@@ -362,6 +362,46 @@ export async function getMySplitExpense(customerId) {
     throw error.response ? error.response.data : error;
   }
 }
+
+export async function getSplitExpenseById(customerId, expenseId) {
+  try {
+    const response = await axios.get(
+      `${expenseAPIUrl}/GetSplitExpenseById?CustomerId=${customerId}&ExpenseId=${expenseId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error fetching split expense by ID:",
+      error.response ? error.response.data : error
+    );
+    throw error.response ? error.response.data : error;
+  }
+}
+
+export async function getCustomerByCustId(customerId) {
+  try {
+    const response = await axios.get(
+      `${customerAPIUrl}/GetCustomerByCustId/${customerId}/`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return null;
+    }
+    console.error("Failed to fetch customer by CustomerId: " + error);
+    throw error.response ? error.response.data : error;
+  }
+}
 //--------------------- END OF EXPENSE API---------------------------------//
 
 //--------------------- NOTIFICATION API---------------------------------//
