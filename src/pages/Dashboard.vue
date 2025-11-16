@@ -157,7 +157,7 @@
                     <p :class="['font-bold', tx.amountColor]">
                       {{ tx.transactionAmount }}
                     </p>
-                    <button v-if="tx.accountFrom == currentAccNumber" @click="splitExpense(tx)"
+                    <button v-if="tx.accountFrom == currentAccNumber && !isTransactionAlreadySplit(tx)" @click="splitExpense(tx)"
                       class="px-2 py-1 my-3 rounded-lg font-semibold bg-blue-500 text-white shadow transition transform hover:bg-blue-600 focus:outline-none text-sm">
                       Split Expenses
                     </button>
@@ -556,17 +556,8 @@ export default {
   mounted() {
     this.getAccountDetails(this.currentAccNumber)
       .then((data) => {
-        // console.log(data); //dont show on console
         this.balance = "$" + (data.Balance).toFixed(2);
-        this.accountDetails = data; // Store account details for MemberId
-
-        // Log account details to help debug CustomerId
-        console.log('Account Details loaded:', {
-          AccountId: this.currentAccNumber,
-          CustomerId: data.CustomerId,
-          Id: data.Id,
-          FullData: data
-        });
+        this.accountDetails = data;
       })
       .catch((error) => {
         console.error(error);
@@ -574,8 +565,6 @@ export default {
 
     this.fetchTransactionData(this.currentAccNumber, this.startDate, this.endDate)
       .then((data) => {
-        // console.log(data); // See your API response structure
-        // Extract available months
         const now = new Date();
         const last6Months = [];
         for (let i = 0; i < 6; i++) {
@@ -620,8 +609,6 @@ export default {
       return this.allTransactions.reduce((sum, tx) => sum + parseFloat(tx.transactionAmount?.replace(/[\$]/g, '')), 0);
     },
     balanceDifference() {
-      console.log(this.transactionSum)
-      console.log(this.balance)
       return this.transactionSum - this.balance.replace(/[\$]/g, '');
     },
   },
@@ -637,7 +624,30 @@ export default {
       }
     },
 
+    isTransactionAlreadySplit(transaction) {
+      if (!transaction || !this.splitExpenses || this.splitExpenses.length === 0) {
+        return false;
+      }
+
+      const txId = transaction.transactionId || transaction.id || transaction.TransactionId || transaction.transactionID;
+      if (!txId) {
+        return false;
+      }
+
+      return this.splitExpenses.some(expense => {
+        const expenseBankTxId = expense.BankTransactionId || expense.TransactionId;
+        if (!expenseBankTxId) {
+          return false;
+        }
+        return txId.toString() === expenseBankTxId.toString();
+      });
+    },
+
     splitExpense(transaction) {
+      if (this.isTransactionAlreadySplit(transaction)) {
+        this.showError('This transaction has already been split.');
+        return;
+      }
       this.selectedTransaction = transaction;
       this.showSplitModal = true;
     },
@@ -706,7 +716,11 @@ export default {
 
         this.loadingSplitExpenses = false;
         this.showSuccess("Your split expense transfer was successful!");
-        // Refresh transactions so the UI shows the latest transaction history
+        try {
+          await this.fetchSplitExpenses();
+        } catch (err) {
+          console.error('Failed to refresh split expenses after payment:', err);
+        }
         try {
           await this.refreshTransactions();
         } catch (err) {
@@ -803,10 +817,8 @@ export default {
         // Close modal
         this.closeSplitModal();
 
-        // Refresh split expenses if user is on that tab
-        if (this.currentTab === 'splitExpenses') {
-          this.fetchSplitExpenses();
-        }
+        // Refresh split expenses to update button visibility
+        await this.fetchSplitExpenses();
 
         // Refresh transaction history so new split/expense appears
         try {
@@ -1178,34 +1190,21 @@ export default {
 
       this.loadingSplitExpenses = true;
       try {
-        // Get CustomerId from account details, fallback to currentAccNumber
         let customerId = this.accountDetails?.CustomerId ||
           this.accountDetails?.Id ||
           this.currentAccNumber;
 
-        console.log('Fetching split expenses for CustomerId:', customerId);
-        console.log('Account Details:', this.accountDetails);
-        console.log('Original CustomerId value:', this.accountDetails?.CustomerId || this.accountDetails?.Id || this.currentAccNumber);
-
         const response = await getMySplitExpense(customerId);
 
-        console.log('API Response:', response);
-        console.log('SplitExpenses array:', response?.SplitExpenses);
-
-        // Map the API response structure to frontend structure
         if (response && response.SplitExpenses && Array.isArray(response.SplitExpenses) && response.SplitExpenses.length > 0) {
-          // Deduplicate expenses by ExpenseId - API may return same expense multiple times (once per split transaction)
           const expenseMap = new Map();
           response.SplitExpenses.forEach(expense => {
             const expenseId = expense.ExpenseId;
             if (expenseId && !expenseMap.has(expenseId)) {
-              // Keep the first occurrence of each ExpenseId
               expenseMap.set(expenseId, expense);
             } else if (expenseId && expenseMap.has(expenseId)) {
-              // If we already have this expense, merge SplitWith arrays if they exist
               const existingExpense = expenseMap.get(expenseId);
               if (expense.SplitWith && Array.isArray(expense.SplitWith)) {
-                // Merge SplitWith arrays, avoiding duplicates by MemberId
                 const existingMemberIds = new Set((existingExpense.SplitWith || []).map(s => s.MemberId));
                 expense.SplitWith.forEach(split => {
                   if (!existingMemberIds.has(split.MemberId)) {
@@ -1220,29 +1219,18 @@ export default {
             }
           });
           
-          // Convert map values to array for processing
           const uniqueExpenses = Array.from(expenseMap.values());
           
-          console.log('Original expenses count:', response.SplitExpenses.length);
-          console.log('Deduplicated expenses count:', uniqueExpenses.length);
-          
-          // Transform the response to match frontend expectations
           this.splitExpenses = uniqueExpenses.map(expense => {
-            // Try to get the description from multiple sources
             let transactionDescription = expense.Description;
 
-            // If Description is empty, try to extract from Notes first (available for all users)
             if (!transactionDescription || transactionDescription.trim() === '') {
               if (expense.Notes) {
-                // Try multiple patterns to extract description from Notes
                 let notesMatch = expense.Notes.match(/Split expense for transaction:\s*(.+)/i);
                 if (!notesMatch) {
-                  // Try alternative pattern without "for transaction:"
                   notesMatch = expense.Notes.match(/Split expense:\s*(.+)/i);
                 }
                 if (!notesMatch && expense.Notes.trim()) {
-                  // If Notes doesn't match pattern but has content, use it directly
-                  // (in case the format changed or Notes contains the description directly)
                   transactionDescription = expense.Notes.trim();
                 } else if (notesMatch && notesMatch[1]) {
                   transactionDescription = notesMatch[1].trim();
@@ -1250,23 +1238,17 @@ export default {
               }
             }
 
-            // If still empty, try to find the original transaction (only works for creator)
             if (!transactionDescription || transactionDescription.trim() === '') {
               const bankTransactionId = expense.BankTransactionId;
               if (bankTransactionId) {
-                // Helper function to find transaction in an array
                 const findTransactionInArray = (txArray) => {
                   return txArray.find(tx => {
-                    // Try multiple field names and formats
                     const txId = tx.transactionId || tx.id || tx.TransactionId || tx.transactionID;
                     if (!txId) return false;
-
-                    // Direct comparison of IDs
                     return txId.toString() === bankTransactionId.toString();
                   });
                 };
 
-                // Search in allTransactions first (has all transactions), then in current transactions
                 let originalTransaction = findTransactionInArray(this.allTransactions);
                 if (!originalTransaction) {
                   originalTransaction = findTransactionInArray(this.transactions);
@@ -1274,89 +1256,57 @@ export default {
 
                 if (originalTransaction) {
                   transactionDescription = originalTransaction.narrative || originalTransaction.description || originalTransaction.Description || '';
-                  console.log('Found original transaction:', {
-                    bankTransactionId,
-                    narrative: transactionDescription,
-                    transactionId: originalTransaction.transactionId || originalTransaction.id || originalTransaction.TransactionId
-                  });
-                } else {
-                  console.log('Could not find original transaction for BankTransactionId:', bankTransactionId);
-                  if (this.allTransactions.length > 0) {
-                    console.log('Sample transactions:', this.allTransactions.slice(0, 3).map(tx => ({
-                      id: tx.transactionId || tx.id || tx.TransactionId,
-                      narrative: tx.narrative
-                    })));
-                  }
                 }
               }
             }
 
+            const splitDetails = (expense.SplitWith || []).map(split => {
+              const percentage = expense.OriginalAmount > 0
+                ? (split.SplitAmount / expense.OriginalAmount) * 100
+                : 0;
+
+              return {
+                MemberId: split.MemberId,
+                MemberName: split.MemberName || null,
+                SplitAmount: split.SplitAmount,
+                SplitPercentage: percentage,
+                IsPaid: split.IsPaid,
+                PaymentStatus: split.IsPaid ? 'Paid' : 'Pending',
+                SplitType: 'Equal'
+              };
+            });
+
             return {
-              // Map basic expense fields
               ExpenseId: expense.ExpenseId,
-              // Use the found transaction description, or fallback
               Description: transactionDescription || 'Split Expense',
-              TotalAmount: expense.OriginalAmount, // Map OriginalAmount to TotalAmount
+              TotalAmount: expense.OriginalAmount,
               ExpenseDate: expense.ExpenseDate,
               BankTransactionId: expense.BankTransactionId,
               CategoryId: expense.CategoryId,
-              TransactionId: expense.BankTransactionId, // Use BankTransactionId as TransactionId
-              // Store original Notes for reference
+              TransactionId: expense.BankTransactionId,
               Notes: expense.Notes || '',
-              // Map SplitWith to SplitDetails with additional fields
-              SplitDetails: (expense.SplitWith || []).map(split => {
-                // Calculate percentage: (SplitAmount / OriginalAmount) * 100
-                const percentage = expense.OriginalAmount > 0
-                  ? (split.SplitAmount / expense.OriginalAmount) * 100
-                  : 0;
-
-                return {
-                  MemberId: split.MemberId,
-                  MemberName: split.MemberName || null, // Use MemberName from API response
-                  SplitAmount: split.SplitAmount,
-                  SplitPercentage: percentage,
-                  IsPaid: split.IsPaid,
-                  PaymentStatus: split.IsPaid ? 'Paid' : 'Pending', // Convert boolean to string
-                  SplitType: 'Equal' // Default, adjust if API provides this
-                };
-              }),
-              // Calculate derived fields
+              SplitDetails: splitDetails,
               TotalPeople: expense.SplitWith ? expense.SplitWith.length : 0,
               SplitAmount: expense.SplitWith && expense.SplitWith.length > 0
                 ? expense.OriginalAmount / expense.SplitWith.length
                 : expense.OriginalAmount,
               PaidByMemberId: expense.PaidByMemberId || expense.PaidByCustomerId || null,
-              PaidByMemberName: expense.PaidByName || null, // Use PaidByName from API response
+              PaidByMemberName: expense.PaidByName || null,
               CreatedDate: expense.ExpenseDate,
               ModifiedDate: expense.ExpenseDate,
               IsActive: true,
-              PaymentStatus: 'Pending',
-              CreatedByCustomerId: expense.CreatedByCustomerId || expense.CreatedBy || null, // Preserve creator ID from API if available
+              PaymentStatus: expense.PaymentStatus || 'Pending',
+              CreatedByCustomerId: expense.CreatedByCustomerId || expense.CreatedBy || null,
               ModifiedByCustomerId: null,
               SplitType: 'Equal'
             };
           });
-
-          console.log('Mapped split expenses:', this.splitExpenses);
         } else {
-          console.warn('No split expenses found or empty array. Response:', response);
           this.splitExpenses = [];
-
-          // Show user-friendly message if response is successful but empty
-          if (response && response.Success && (!response.SplitExpenses || response.SplitExpenses.length === 0)) {
-            console.log('API returned success but no expenses found');
-          }
         }
       } catch (error) {
         console.error('Error fetching split expenses:', error);
-        console.error('Error details:', {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status
-        });
         this.splitExpenses = [];
-        // Optionally show error message to user
-        // alert('Failed to load split expenses. Please try again.');
       } finally {
         this.loadingSplitExpenses = false;
       }
