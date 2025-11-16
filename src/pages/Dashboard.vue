@@ -1120,8 +1120,8 @@ export default {
         const senderPhone = this.accountDetails?.PhoneNumber || this.accountDetails?.phoneNumber;
 
         if (senderEmail || senderPhone) {
-          const senderSubject = `Fund Transfer Sent: $${amountFormatted} 💸`;
-          const senderEmailBody = `Hello ${senderName},\n\nYou have successfully transferred $${amountFormatted} to ${recipientName}.\n\nTransaction completed successfully.\n\nThank you for using our service! 🏦`;
+          const senderSubject = `Fund Transfer Sent: $${amountFormatted}`;
+          const senderEmailBody = `Hello ${senderName},\n\nYou have successfully transferred $${amountFormatted} to ${recipientName}.\n\nTransaction completed successfully.\n\nThank you for using our service!`;
           const senderSmsBody = `Hello ${senderName},\n\nYou sent $${amountFormatted} to ${recipientName}.\nTransaction completed successfully.`;
 
           try {
