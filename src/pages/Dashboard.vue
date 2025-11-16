@@ -873,8 +873,8 @@ export default {
           return;
         }
 
-        const subject = `Split expense: ${expenseDescription} 💳`;
-        const emailBody = `Hello ${recipientName},\n\n${payerName} has allocated a shared expense for ${expenseDescription} dated ${expenseDateFormatted}.\nTotal amount: $${totalFormatted}\nYour assigned share: $${shareFormatted}.\n\nPlease sign in to your account to review and manage this expense🏦`;
+        const subject = `Split expense: ${expenseDescription}`;
+        const emailBody = `Hello ${recipientName},\n\n${payerName} has allocated a shared expense for ${expenseDescription} dated ${expenseDateFormatted}.\nTotal amount: $${totalFormatted}\nYour assigned share: $${shareFormatted}.\n\nPlease sign in to your account to review and manage this expense`;
         const smsBody = `Hello ${recipientName},\n\n${payerName} split an expense for ${expenseDescription}.\nDate: ${expenseDateFormatted}\nYour share: $${shareFormatted}\nPlease review in your account.`;
 
         const results = await sendNotifications({
@@ -951,8 +951,8 @@ export default {
     }) {
       const participantSummary = this.formatParticipantSummary(participants);
 
-      const subject = `Split expense confirmed: ${expenseDescription}💳`;
-      const emailBody = `Hello ${payerName},\n\nYour split expense for ${expenseDescription} on ${expenseDateFormatted} has been processed.\nTotal amount: $${totalAmount}\nAssigned share per participant: $${shareAmount}\n\nParticipants (${recipientCount}):\n${participantSummary}\n\nYou can review this split anytime from your account🏦`;
+      const subject = `Split expense confirmed: ${expenseDescription}`;
+      const emailBody = `Hello ${payerName},\n\nYour split expense for ${expenseDescription} on ${expenseDateFormatted} has been processed.\nTotal amount: $${totalAmount}\nAssigned share per participant: $${shareAmount}\n\nParticipants (${recipientCount}):\n${participantSummary}\n\nYou can review this split anytime from your account`;
       const smsBody = `Hello ${payerName},\n\nYour split expense for ${expenseDescription} was successfully created.\nDate: ${expenseDateFormatted}\nTotal: $${totalAmount}\nParticipants: ${recipientCount}\nReview in your account.`;
 
       return { subject, emailBody, smsBody };
@@ -1096,8 +1096,8 @@ export default {
         const recipientPhone = recipient.PhoneNumber || recipient.phoneNumber || Number(this.transferRecipient);
 
         if (recipientEmail || recipientPhone) {
-          const recipientSubject = `Fund Transfer Received: $${amountFormatted} 💰`;
-          const recipientEmailBody = `Hello ${recipientName},\n\nYou have received a fund transfer of $${amountFormatted} from ${senderName}.\n\nTransaction completed successfully🏦.\n\nThank you!`;
+          const recipientSubject = `Fund Transfer Received: $${amountFormatted}`;
+          const recipientEmailBody = `Hello ${recipientName},\n\nYou have received a fund transfer of $${amountFormatted} from ${senderName}.\n\nTransaction completed successfully.\n\nThank you!`;
           const recipientSmsBody = `Hello ${recipientName},\n\nYou received $${amountFormatted} from ${senderName}.\nTransaction completed successfully.`;
 
           try {
