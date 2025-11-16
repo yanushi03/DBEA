@@ -131,6 +131,11 @@
         </div>
 
         <div class="divide-y divide-navy-100">
+          <!-- Loading State -->
+          <div v-if="transactionsLoading" class="p-6 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <p class="text-navy-500 mt-2">Loading transactions...</p>
+          </div>
           <template>
             <div>
               <div v-for="(tx, idx) in paginatedTransactions" :key="idx" class="p-6 hover:bg-navy-50 transition-colors">
@@ -418,7 +423,13 @@
     <!-- Success Alert -->
     <div v-if="showSuccessAlert"
       class="fixed bottom-8 right-8 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[1300] transition">
-      Transfer successful!
+      {{ showSuccessAlertMessage || 'Transfer successful!' }}
+    </div>
+
+    <!-- Error Toast -->
+    <div v-if="showErrorAlert"
+      class="fixed bottom-20 right-8 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-[1300] transition">
+      {{ showErrorAlertMessage }}
     </div>
 
     <!-- Transfer Modal -->
@@ -453,6 +464,9 @@
       </div>
     </ModalComponent>
 
+    <!-- Generic Confirm Modal (replaces window.confirm) -->
+    <ConfirmModal :isVisible="showConfirmDialog" :message="confirmDialogMessage" @confirm="confirmDialogConfirm" @cancel="confirmDialogCancel" />
+
     <!-- Split Expense Modal -->
     <SplitExpenseModal ref="splitExpenseModal" :isVisible="showSplitModal" :transaction="selectedTransaction"
       @close="closeSplitModal" @confirm-split="handleSplitConfirm" />
@@ -471,13 +485,15 @@ import { addLeadingZeros } from "../utils/idFormatter";
 import SplitExpenseModal from "./SplitExpenseModal.vue";
 import PaySplitExpenseModal from "./PaySplitExpenseModal.vue";
 import ModalComponent from "./ModalComponent.vue";
+import ConfirmModal from "./ConfirmModal.vue";
 import { getCustomerByPhone } from "../api/outsystems";
 
 export default {
   components: {
     SplitExpenseModal,
     PaySplitExpenseModal,
-    ModalComponent
+    ModalComponent,
+    ConfirmModal
   },
   data() {
     const now = new Date();
@@ -502,14 +518,22 @@ export default {
       currentPage: 1,
       itemsPerPage: 4, // adjust per page count here
       allTransactions: [], // your fetched transactions
+      transactionsLoading: false,
       showSplitModal: false,
       selectedTransaction: null,
       accountDetails: null, // Store account details to get MemberId
       splitExpenses: [], // Store split expenses
       loadingSplitExpenses: false,
       showPaySplitExpenseModal: false,
-      isGlobalLoading: false,   // loading after modal closed
       showSuccessAlert: false,
+
+      // Toast state
+      showSuccessAlertMessage: '',
+      showErrorAlert: false,
+      showErrorAlertMessage: '',
+      // Toast timers
+      successToastTimer: null,
+      errorToastTimer: null,
 
 
       // Transfer modal state
@@ -519,6 +543,11 @@ export default {
       transferMsg: '',
       transferError: null,
       isTransferring: false,
+
+      // Generic confirm modal state (used instead of window.confirm)
+      showConfirmDialog: false,
+      confirmDialogMessage: '',
+      _confirmDialogResolve: null,
 
     };
 
@@ -628,7 +657,7 @@ export default {
     },
 
     async handleSelectExpense(expense) {
-      const confirmed = window.confirm("Are you sure you want to split and transfer funds for this expense?");
+      const confirmed = await this.showConfirmDialogAsync("Are you sure you want to split and transfer funds for this expense?");
       if (!confirmed) return;
 
       this.closePaySplitExpenseModal(); // Close modal instantly
@@ -677,10 +706,16 @@ export default {
         }
 
         this.loadingSplitExpenses = false;
-        alert("Your split expense transfer was successful!")
+        this.showSuccess("Your split expense transfer was successful!");
+        // Refresh transactions so the UI shows the latest transaction history
+        try {
+          await this.refreshTransactions();
+        } catch (err) {
+          console.error('Failed to refresh transactions after split transfer:', err);
+        }
       } catch (e) {
         this.loadingSplitExpenses = false;
-        alert("Your split expense transfer failed, please try again")
+        this.showError("Your split expense transfer failed, please try again");
       }
     },
 
@@ -694,7 +729,7 @@ export default {
           this.currentAccNumber;
 
         if (!paidByMemberId) {
-          alert('Error: Could not find your member ID. Please try again.');
+          this.showError('Error: Could not find your member ID. Please try again.');
           return;
         }
 
@@ -723,7 +758,7 @@ export default {
 
         // Validate that we have all required MemberIds
         if (splitDetails.length !== splitData.phoneNumbers.length) {
-          alert('Error: Some phone numbers are missing member IDs. Please remove and re-add them.');
+          this.showError('Error: Some phone numbers are missing member IDs. Please remove and re-add them.');
           return;
         }
 
@@ -770,7 +805,7 @@ export default {
         if (notificationErrors.length > 0) {
           successMessage += `\nHowever, some notifications failed: ${notificationErrors.join(', ')}.`;
         }
-        alert(successMessage);
+        this.showSuccess(successMessage);
 
         // Close modal
         this.closeSplitModal();
@@ -780,8 +815,12 @@ export default {
           this.fetchSplitExpenses();
         }
 
-        // Optionally refresh transaction data to show updated split info
-        // this.fetchTransactionData(this.currentAccNumber, this.startDate, this.endDate);
+        // Refresh transaction history so new split/expense appears
+        try {
+          await this.refreshTransactions();
+        } catch (err) {
+          console.error('Failed to refresh transactions after creating split expense:', err);
+        }
 
       } catch (error) {
         console.error('Error creating split expense:', error);
@@ -795,7 +834,7 @@ export default {
         const errorMessage = error?.response?.data?.message ||
           error?.message ||
           'Failed to create split expense. Please try again.';
-        alert(`Error: ${errorMessage}`);
+        this.showError(`Error: ${errorMessage}`);
       } finally {
         // Reset modal submitting state regardless of outcome
         if (this.$refs.splitExpenseModal) {
@@ -965,6 +1004,51 @@ export default {
       this.isTransferring = false;
     },
 
+    // Show a confirm dialog using the ConfirmModal component and return a Promise<boolean>
+    showConfirmDialogAsync(message) {
+      return new Promise((resolve) => {
+        this.confirmDialogMessage = message;
+        this.showConfirmDialog = true;
+        this._confirmDialogResolve = resolve;
+      });
+    },
+
+    confirmDialogConfirm() {
+      if (this._confirmDialogResolve) this._confirmDialogResolve(true);
+      this._confirmDialogResolve = null;
+      this.showConfirmDialog = false;
+      this.confirmDialogMessage = '';
+    },
+
+    confirmDialogCancel() {
+      if (this._confirmDialogResolve) this._confirmDialogResolve(false);
+      this._confirmDialogResolve = null;
+      this.showConfirmDialog = false;
+      this.confirmDialogMessage = '';
+    },
+
+    showSuccess(message, duration = 3500) {
+      this.showSuccessAlertMessage = message || 'Success';
+      this.showSuccessAlert = true;
+      if (this.successToastTimer) clearTimeout(this.successToastTimer);
+      this.successToastTimer = setTimeout(() => {
+        this.showSuccessAlert = false;
+        this.showSuccessAlertMessage = '';
+        this.successToastTimer = null;
+      }, duration);
+    },
+
+    showError(message, duration = 5000) {
+      this.showErrorAlertMessage = message || 'An error occurred';
+      this.showErrorAlert = true;
+      if (this.errorToastTimer) clearTimeout(this.errorToastTimer);
+      this.errorToastTimer = setTimeout(() => {
+        this.showErrorAlert = false;
+        this.showErrorAlertMessage = '';
+        this.errorToastTimer = null;
+      }, duration);
+    },
+
     async confirmTransfer() {
       this.transferError = null;
 
@@ -984,10 +1068,10 @@ export default {
       let proceed = false;
 
       if (this.transferMsg == "") {
-        proceed = window.confirm(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName}?`);
-        this.transferMsg = "Others"
+        proceed = await this.showConfirmDialogAsync(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName}?`);
+        this.transferMsg = "Others";
       } else {
-        proceed = window.confirm(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName} for ${this.transferMsg}?`);
+        proceed = await this.showConfirmDialogAsync(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName} for ${this.transferMsg}?`);
       }
 
       if (!proceed) return;
@@ -1055,6 +1139,13 @@ export default {
         }
 
         this.closeTransferModal();
+
+        // Refresh transactions so the new transfer shows up
+        try {
+          await this.refreshTransactions();
+        } catch (err) {
+          console.error('Failed to refresh transactions after transfer:', err);
+        }
       } catch (err) {
         console.error('Transfer failed:', err);
         this.transferError = err?.message || 'Transfer failed. See console for details.';
@@ -1068,6 +1159,20 @@ export default {
       const summary = this.getMonthSummary(month);
       this.spendingSummary = summary.categories;
       this.totalSpending = summary.totalSpending || "$0.00";
+    },
+
+    // Refresh transaction history and insights
+    async refreshTransactions() {
+      try {
+        this.currentPage = 1;
+        await this.fetchTransactionData(this.currentAccNumber, this.startDate, this.endDate);
+        // refresh insights and monthly data
+        await this.fetchAllTransactionsForInsights();
+        await this.fetchMonthlyTransaction();
+      } catch (err) {
+        console.error('Error refreshing transactions:', err);
+        throw err;
+      }
     },
 
     selectSplitExpensesTab() {
@@ -1256,12 +1361,19 @@ export default {
 
     // Fetch transactions by date filter
     fetchTransactionData(currentAccNumber, startDate, endDate) {
+      this.transactionsLoading = true;
       return fetchTransactionData(currentAccNumber, startDate, endDate)
         .then((data) => {
           // 2. Set transactions
           this.transactions = data.map(tx => enrichTransaction(tx, currentAccNumber));
-
-
+        })
+        .catch((err) => {
+          console.error('Error fetching transactions:', err);
+          this.transactions = [];
+          throw err;
+        })
+        .finally(() => {
+          this.transactionsLoading = false;
         });
     },
 
@@ -1308,6 +1420,7 @@ export default {
       lastMonthDate.setMonth(nowDate.getMonth() - 1); // set to one month earlier
       const lastMonth = lastMonthDate.toLocaleDateString('en-CA');
 
+      this.transactionsLoading = true;
       return fetchTransactionData(this.currentAccNumber, lastMonth, now)
         .then((data) => {
           // Enrich each transaction with account number context
@@ -1322,6 +1435,14 @@ export default {
           this.expenses = "$" + this.transactions
             .reduce((sum, tx) => sum + calculateExpenses(tx, this.currentAccNumber), 0)
             .toFixed(2);
+        })
+        .catch((err) => {
+          console.error('Error fetching monthly transactions:', err);
+          this.transactions = [];
+          throw err;
+        })
+        .finally(() => {
+          this.transactionsLoading = false;
         });
 
     },

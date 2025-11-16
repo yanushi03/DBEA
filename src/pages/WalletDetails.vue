@@ -221,6 +221,9 @@
           </ModalComponent>
           <!-- End of Confirm Top-Up Modal -->
 
+          <!-- Generic Confirm Modal (replaces window.confirm) -->
+          <ConfirmModal :isVisible="showConfirmDialog" :message="confirmDialogMessage" @confirm="onConfirmDialog" @cancel="onCancelDialog" />
+
 
 
           <!-- Transfer Out Modal -->
@@ -430,15 +433,20 @@
 
 <script>
 import ModalComponent from "./ModalComponent.vue";
+import ConfirmModal from "./ConfirmModal.vue";
 import { getUsers, addMember, getWallet, getCustomerByPhone, getCustomerByAccountId, sendNotifications, topUpWallet, getWalletTransactions, getAccountDetails, updateWalletBalance, transferFunds, transferOutFromWallet, updateWalletStatus } from "@/api/outsystems";
 import { getAccountId } from "../router/auth";
 
 export default {
   name: "WalletDetails",
-  components: { ModalComponent },
+  components: { ModalComponent, ConfirmModal },
   data() {
     return {
       showConfirmModal: false,
+      // Generic confirm modal state (for replacing window.confirm)
+      showConfirmDialog: false,
+      confirmDialogMessage: '',
+      _confirmDialogResolve: null,
       confirmAmount: 0,
       sharedBalanceVisible: true,
       hiddenSharedBalance: "••••••••",
@@ -807,7 +815,8 @@ export default {
 
         const recipientName = recipient.FullName || "Recipient";
         const confirmMessage = `Are you sure you want to transfer $${amount.toFixed(2)} from this wallet to ${recipientName}?`;
-        if (!window.confirm(confirmMessage)) {
+        const confirmed = await this.showConfirmDialogAsync(confirmMessage);
+        if (!confirmed) {
           this.transferOutLoading = false;
           return;
         }
@@ -1021,7 +1030,8 @@ export default {
         ? 'Are you sure you want to deactivate this wallet? All wallet actions will be disabled until you reactivate it.'
         : 'Are you sure you want to activate this wallet?';
 
-      if (!window.confirm(confirmMessage)) {
+      const confirmed = await this.showConfirmDialogAsync(confirmMessage);
+      if (!confirmed) {
         return;
       }
 
@@ -1212,6 +1222,29 @@ export default {
       }
     }
     //------------------------------- END OF TOP UP WALLET FUNCTION ------------------ //
+    ,
+    // Generic confirm modal helper (returns Promise<boolean>)
+    showConfirmDialogAsync(message) {
+      return new Promise((resolve) => {
+        this.confirmDialogMessage = message;
+        this.showConfirmDialog = true;
+        this._confirmDialogResolve = resolve;
+      });
+    },
+
+    onConfirmDialog() {
+      if (this._confirmDialogResolve) this._confirmDialogResolve(true);
+      this._confirmDialogResolve = null;
+      this.showConfirmDialog = false;
+      this.confirmDialogMessage = '';
+    },
+
+    onCancelDialog() {
+      if (this._confirmDialogResolve) this._confirmDialogResolve(false);
+      this._confirmDialogResolve = null;
+      this.showConfirmDialog = false;
+      this.confirmDialogMessage = '';
+    }
   },
 };
 
