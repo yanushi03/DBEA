@@ -634,7 +634,43 @@ export default {
           CustomerId: this.accountDetails.CustomerId,
           ExpenseId: expense.ExpenseId
         });
-        // When transfer resolves, show success
+        
+        const accountId = getAccountId();
+        if (accountId) {
+          try {
+            // Notify the payer
+            const payerAccountDetails = await fetchAccountDetails(accountId);
+            
+            const expenseDescription = expense.Description;
+            const expenseDateFormatted = expense.ExpenseDate 
+              ? this.formatDateForNotification(expense.ExpenseDate)
+              : this.formatDateForNotification(new Date().toLocaleString());
+            const splitAmountFormatted = parseFloat(expense.SplitAmount || (expense.TotalAmount / expense.TotalPeople) || 0).toFixed(2);
+            const totalAmountFormatted = parseFloat(expense.TotalAmount || 0).toFixed(2);
+            const payerName = payerAccountDetails?.FullName || payerAccountDetails?.Name || payerAccountDetails?.customerName || 'Customer';
+            
+            const payerEmail = payerAccountDetails?.Email || payerAccountDetails?.email || null;
+            const payerPhone = payerAccountDetails?.PhoneNumber || payerAccountDetails?.MobileNumber || payerAccountDetails?.phone || null;
+            
+            if (payerEmail || payerPhone) {
+              const subject = `Split Expense Payment Confirmed: ${expenseDescription} 💳`;
+              const emailBody = `Hello ${payerName},\n\nYour payment for the split expense "${expenseDescription}" has been successfully processed.\n\nExpense Date: ${expenseDateFormatted}\nTotal Amount: $${totalAmountFormatted}\nYour Share: $${splitAmountFormatted}\n\nThank you for settling this expense! 🏦`;
+              const smsBody = `Hello ${payerName},\n\nYour payment for "${expenseDescription}" was successful.\nDate: ${expenseDateFormatted}\nYour share: $${splitAmountFormatted}\nThank you!`;
+              
+              await sendNotifications({
+                receipientEmail: payerEmail,
+                subject,
+                emailBody,
+                receipientPhoneNumber: payerPhone,
+                smsBody,
+                notificationType: 'SPLIT_EXPENSE_PAYMENT_CONFIRMED'
+              });
+            }
+          } catch (accountErr) {
+            console.error('Failed to fetch account details for notification:', accountErr);
+          }
+        }
+        
         this.loadingSplitExpenses = false;
         alert("Your split expense transfer was successful!")
       } catch (e) {
@@ -867,13 +903,7 @@ export default {
     },
 
     buildPayerNotification({
-      payerName,
-      recipientCount,
-      participants,
-      expenseDescription,
-      expenseDateFormatted,
-      totalAmount,
-      shareAmount
+      payerName, recipientCount, participants, expenseDescription, expenseDateFormatted, totalAmount, shareAmount
     }) {
       const participantSummary = this.formatParticipantSummary(participants);
 
@@ -1154,14 +1184,13 @@ export default {
               SplitAmount: expense.SplitWith && expense.SplitWith.length > 0
                 ? expense.OriginalAmount / expense.SplitWith.length
                 : expense.OriginalAmount,
-              // Set default values for fields not in API response
-              PaidByMemberId: null,
+              PaidByMemberId: expense.PaidByMemberId || expense.PaidByCustomerId || null, 
               PaidByMemberName: expense.PaidByName || null, // Use PaidByName from API response
               CreatedDate: expense.ExpenseDate,
               ModifiedDate: expense.ExpenseDate,
               IsActive: true,
               PaymentStatus: 'Pending',
-              CreatedByCustomerId: null,
+              CreatedByCustomerId: expense.CreatedByCustomerId || expense.CreatedBy || null, // Preserve creator ID from API if available
               ModifiedByCustomerId: null,
               SplitType: 'Equal'
             };
