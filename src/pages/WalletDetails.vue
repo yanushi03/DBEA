@@ -849,6 +849,7 @@ export default {
             await transferFunds({
               accountIdFrom: this.currentAccount,
               consumerIdFrom: accountDetails.CustomerId,
+              narrative: `Transfer out to ${recipientName}`,
               amount: amount,
               phone: recipient.PhoneNumber || Number(this.transferOutRecipient)
             });
