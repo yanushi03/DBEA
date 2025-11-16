@@ -131,6 +131,11 @@
         </div>
 
         <div class="divide-y divide-navy-100">
+          <!-- Loading State -->
+          <div v-if="transactionsLoading" class="p-6 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <p class="text-navy-500 mt-2">Loading transactions...</p>
+          </div>
           <template>
             <div>
               <div v-for="(tx, idx) in paginatedTransactions" :key="idx" class="p-6 hover:bg-navy-50 transition-colors">
@@ -152,7 +157,8 @@
                     <p :class="['font-bold', tx.amountColor]">
                       {{ tx.transactionAmount }}
                     </p>
-                    <button v-if="tx.accountFrom == currentAccNumber" @click="splitExpense(tx)"
+                    <button v-if="tx.accountFrom == currentAccNumber && !isTransactionAlreadySplit(tx) && !isTransactionNarrativeSplitExpense(tx)"
+                      @click="splitExpense(tx)"
                       class="px-2 py-1 my-3 rounded-lg font-semibold bg-blue-500 text-white shadow transition transform hover:bg-blue-600 focus:outline-none text-sm">
                       Split Expenses
                     </button>
@@ -418,7 +424,13 @@
     <!-- Success Alert -->
     <div v-if="showSuccessAlert"
       class="fixed bottom-8 right-8 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[1300] transition">
-      Transfer successful!
+      {{ showSuccessAlertMessage || 'Transfer successful!' }}
+    </div>
+
+    <!-- Error Toast -->
+    <div v-if="showErrorAlert"
+      class="fixed bottom-20 right-8 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-[1300] transition">
+      {{ showErrorAlertMessage }}
     </div>
 
     <!-- Transfer Modal -->
@@ -435,6 +447,10 @@
           <input v-model="transferAmount" type="text" class="w-full mt-1 border border-navy-200 rounded px-3 py-2"
             placeholder="0.00" />
         </div>
+        <div>
+          <label class="text-sm font-medium text-navy-600">Remarks</label>
+          <input v-model="transferMsg" type="text" class="w-full mt-1 border border-navy-200 rounded px-3 py-2" />
+        </div>
 
         <div v-if="transferError" class="text-sm text-red-500">{{ transferError }}</div>
 
@@ -448,6 +464,10 @@
         </div>
       </div>
     </ModalComponent>
+
+    <!-- Generic Confirm Modal (replaces window.confirm) -->
+    <ConfirmModal :isVisible="showConfirmDialog" :message="confirmDialogMessage" @confirm="confirmDialogConfirm"
+      @cancel="confirmDialogCancel" />
 
     <!-- Split Expense Modal -->
     <SplitExpenseModal ref="splitExpenseModal" :isVisible="showSplitModal" :transaction="selectedTransaction"
@@ -463,17 +483,18 @@
 import { fetchTransactionData, getAccountDetails as fetchAccountDetails, transferFunds, createExpense, getMySplitExpense, sendNotifications, splitTransferFunds } from "@/api/outsystems";
 import { formatDate } from "../utils/date";
 import { getAccountId } from "../router/auth";
-import { addLeadingZeros } from "../utils/idFormatter";
 import SplitExpenseModal from "./SplitExpenseModal.vue";
 import PaySplitExpenseModal from "./PaySplitExpenseModal.vue";
 import ModalComponent from "./ModalComponent.vue";
+import ConfirmModal from "./ConfirmModal.vue";
 import { getCustomerByPhone } from "../api/outsystems";
 
 export default {
   components: {
     SplitExpenseModal,
     PaySplitExpenseModal,
-    ModalComponent
+    ModalComponent,
+    ConfirmModal
   },
   data() {
     const now = new Date();
@@ -498,22 +519,36 @@ export default {
       currentPage: 1,
       itemsPerPage: 4, // adjust per page count here
       allTransactions: [], // your fetched transactions
+      transactionsLoading: false,
       showSplitModal: false,
       selectedTransaction: null,
       accountDetails: null, // Store account details to get MemberId
       splitExpenses: [], // Store split expenses
       loadingSplitExpenses: false,
       showPaySplitExpenseModal: false,
-      isGlobalLoading: false,   // loading after modal closed
       showSuccessAlert: false,
+
+      // Toast state
+      showSuccessAlertMessage: '',
+      showErrorAlert: false,
+      showErrorAlertMessage: '',
+      // Toast timers
+      successToastTimer: null,
+      errorToastTimer: null,
 
 
       // Transfer modal state
       showTransferModal: false,
       transferRecipient: '',
       transferAmount: '',
+      transferMsg: '',
       transferError: null,
       isTransferring: false,
+
+      // Generic confirm modal state (used instead of window.confirm)
+      showConfirmDialog: false,
+      confirmDialogMessage: '',
+      _confirmDialogResolve: null,
 
     };
 
@@ -523,17 +558,8 @@ export default {
   mounted() {
     this.getAccountDetails(this.currentAccNumber)
       .then((data) => {
-        // console.log(data); //dont show on console
         this.balance = "$" + (data.Balance).toFixed(2);
-        this.accountDetails = data; // Store account details for MemberId
-
-        // Log account details to help debug CustomerId
-        console.log('Account Details loaded:', {
-          AccountId: this.currentAccNumber,
-          CustomerId: data.CustomerId,
-          Id: data.Id,
-          FullData: data
-        });
+        this.accountDetails = data;
       })
       .catch((error) => {
         console.error(error);
@@ -541,8 +567,6 @@ export default {
 
     this.fetchTransactionData(this.currentAccNumber, this.startDate, this.endDate)
       .then((data) => {
-        // console.log(data); // See your API response structure
-        // Extract available months
         const now = new Date();
         const last6Months = [];
         for (let i = 0; i < 6; i++) {
@@ -587,8 +611,6 @@ export default {
       return this.allTransactions.reduce((sum, tx) => sum + parseFloat(tx.transactionAmount?.replace(/[\$]/g, '')), 0);
     },
     balanceDifference() {
-      console.log(this.transactionSum)
-      console.log(this.balance)
       return this.transactionSum - this.balance.replace(/[\$]/g, '');
     },
   },
@@ -603,8 +625,41 @@ export default {
         this.currentPage--;
       }
     },
+    isTransactionNarrativeSplitExpense(transaction) {
+    // Defensive: handle null/undefined
+    if (!transaction || !transaction.narrative) return false;
+    // Case-insensitive match is safer
+    return transaction.narrative.toLowerCase().includes("split expense");
+  },
+
+    isTransactionAlreadySplit(transaction) {
+      if (!transaction || !this.splitExpenses || this.splitExpenses.length === 0) {
+        return false;
+      }
+
+      const txId = transaction.transactionId || transaction.id || transaction.TransactionId || transaction.transactionID;
+      if (!txId) {
+        return false;
+      }
+
+      if (transaction.narrative && transaction.narrative.includes("Split Expense")) {
+        return false;
+      }
+
+      return this.splitExpenses.some(expense => {
+        const expenseBankTxId = expense.BankTransactionId || expense.TransactionId;
+        if (!expenseBankTxId) {
+          return false;
+        }
+        return txId.toString() === expenseBankTxId.toString();
+      });
+    },
 
     splitExpense(transaction) {
+      if (this.isTransactionAlreadySplit(transaction)) {
+        this.showError('This transaction has already been split.');
+        return;
+      }
       this.selectedTransaction = transaction;
       this.showSplitModal = true;
     },
@@ -623,7 +678,7 @@ export default {
     },
 
     async handleSelectExpense(expense) {
-      const confirmed = window.confirm("Are you sure you want to split and transfer funds for this expense?");
+      const confirmed = await this.showConfirmDialogAsync("Are you sure you want to split and transfer funds for this expense?");
       if (!confirmed) return;
 
       this.closePaySplitExpenseModal(); // Close modal instantly
@@ -634,48 +689,58 @@ export default {
           CustomerId: this.accountDetails.CustomerId,
           ExpenseId: expense.ExpenseId
         });
-        
+
         const accountId = getAccountId();
         if (accountId) {
           try {
             // Notify the payer
             const payerAccountDetails = await fetchAccountDetails(accountId);
-            
+
             const expenseDescription = expense.Description;
-            const expenseDateFormatted = expense.ExpenseDate 
+            const expenseDateFormatted = expense.ExpenseDate
               ? this.formatDateForNotification(expense.ExpenseDate)
               : this.formatDateForNotification(new Date().toLocaleString());
             const splitAmountFormatted = parseFloat(expense.SplitAmount || (expense.TotalAmount / expense.TotalPeople) || 0).toFixed(2);
             const totalAmountFormatted = parseFloat(expense.TotalAmount || 0).toFixed(2);
             const payerName = payerAccountDetails?.FullName || payerAccountDetails?.Name || payerAccountDetails?.customerName || 'Customer';
-            
+
             const payerEmail = payerAccountDetails?.Email || payerAccountDetails?.email || null;
             const payerPhone = payerAccountDetails?.PhoneNumber || payerAccountDetails?.MobileNumber || payerAccountDetails?.phone || null;
-            
+
             if (payerEmail || payerPhone) {
-              const subject = `Split Expense Payment Confirmed: ${expenseDescription} 💳`;
-              const emailBody = `Hello ${payerName},\n\nYour payment for the split expense "${expenseDescription}" has been successfully processed.\n\nExpense Date: ${expenseDateFormatted}\nTotal Amount: $${totalAmountFormatted}\nYour Share: $${splitAmountFormatted}\n\nThank you for settling this expense! 🏦`;
+              const subject = `Split expense: ${expenseDescription}`;
+              const emailBody = `Hello ${payerName}, your expense share has been recorded. \nAmount: $${splitAmountFormatted}. \nCheck your account for details.\n\nThank you!`;
               const smsBody = `Hello ${payerName},\n\nYour payment for "${expenseDescription}" was successful.\nDate: ${expenseDateFormatted}\nYour share: $${splitAmountFormatted}\nThank you!`;
-              
+
               await sendNotifications({
                 receipientEmail: payerEmail,
                 subject,
                 emailBody,
                 receipientPhoneNumber: payerPhone,
                 smsBody,
-                notificationType: 'SPLIT_EXPENSE_PAYMENT_CONFIRMED'
+                notificationType: 'SPLIT_EXPENSE'
               });
             }
           } catch (accountErr) {
             console.error('Failed to fetch account details for notification:', accountErr);
           }
         }
-        
+
         this.loadingSplitExpenses = false;
-        alert("Your split expense transfer was successful!")
+        this.showSuccess("Your split expense transfer was successful!");
+        try {
+          await this.fetchSplitExpenses();
+        } catch (err) {
+          console.error('Failed to refresh split expenses after payment:', err);
+        }
+        try {
+          await this.refreshTransactions();
+        } catch (err) {
+          console.error('Failed to refresh transactions after split transfer:', err);
+        }
       } catch (e) {
         this.loadingSplitExpenses = false;
-        alert("Your split expense transfer failed, please try again")
+        this.showError("Your split expense transfer failed, please try again");
       }
     },
 
@@ -689,12 +754,9 @@ export default {
           this.currentAccNumber;
 
         if (!paidByMemberId) {
-          alert('Error: Could not find your member ID. Please try again.');
+          this.showError('Error: Could not find your member ID. Please try again.');
           return;
         }
-
-        // Standardize customer IDs to include leading zeros (10 digits)
-        paidByMemberId = addLeadingZeros(paidByMemberId, 10);
 
         // Build SplitDetails array
         const splitDetails = splitData.phoneNumbers.map(phone => {
@@ -703,9 +765,6 @@ export default {
             console.warn('Missing MemberId for phone number:', phone.number);
             return null;
           }
-
-          // Standardize customer IDs to include leading zeros (10 digits)
-          memberId = addLeadingZeros(memberId, 10);
 
           const percentage = (1 / splitData.totalPeople) * 100; // Equal split percentage
 
@@ -718,7 +777,7 @@ export default {
 
         // Validate that we have all required MemberIds
         if (splitDetails.length !== splitData.phoneNumbers.length) {
-          alert('Error: Some phone numbers are missing member IDs. Please remove and re-add them.');
+          this.showError('Error: Some phone numbers are missing member IDs. Please remove and re-add them.');
           return;
         }
 
@@ -765,18 +824,20 @@ export default {
         if (notificationErrors.length > 0) {
           successMessage += `\nHowever, some notifications failed: ${notificationErrors.join(', ')}.`;
         }
-        alert(successMessage);
+        this.showSuccess(successMessage);
 
         // Close modal
         this.closeSplitModal();
 
-        // Refresh split expenses if user is on that tab
-        if (this.currentTab === 'splitExpenses') {
-          this.fetchSplitExpenses();
-        }
+        // Refresh split expenses to update button visibility
+        await this.fetchSplitExpenses();
 
-        // Optionally refresh transaction data to show updated split info
-        // this.fetchTransactionData(this.currentAccNumber, this.startDate, this.endDate);
+        // Refresh transaction history so new split/expense appears
+        try {
+          await this.refreshTransactions();
+        } catch (err) {
+          console.error('Failed to refresh transactions after creating split expense:', err);
+        }
 
       } catch (error) {
         console.error('Error creating split expense:', error);
@@ -790,7 +851,7 @@ export default {
         const errorMessage = error?.response?.data?.message ||
           error?.message ||
           'Failed to create split expense. Please try again.';
-        alert(`Error: ${errorMessage}`);
+        this.showError(`Error: ${errorMessage}`);
       } finally {
         // Reset modal submitting state regardless of outcome
         if (this.$refs.splitExpenseModal) {
@@ -829,8 +890,8 @@ export default {
           return;
         }
 
-        const subject = `Split expense: ${expenseDescription} 💳`;
-        const emailBody = `Hello ${recipientName},\n\n${payerName} has allocated a shared expense for ${expenseDescription} dated ${expenseDateFormatted}.\nTotal amount: $${totalFormatted}\nYour assigned share: $${shareFormatted}.\n\nPlease sign in to your account to review and manage this expense🏦`;
+        const subject = `Split expense: ${expenseDescription}`;
+        const emailBody = `Hello ${recipientName},\n\n${payerName} has allocated a shared expense for ${expenseDescription} dated ${expenseDateFormatted}.\nTotal amount: $${totalFormatted}\nYour assigned share: $${shareFormatted}.\n\nPlease sign in to your account to review and manage this expense`;
         const smsBody = `Hello ${recipientName},\n\n${payerName} split an expense for ${expenseDescription}.\nDate: ${expenseDateFormatted}\nYour share: $${shareFormatted}\nPlease review in your account.`;
 
         const results = await sendNotifications({
@@ -887,7 +948,7 @@ export default {
         emailBody,
         receipientPhoneNumber: payerContact.phone,
         smsBody,
-        notificationType: 'SPLIT_EXPENSE_PAYER'
+        notificationType: 'SPLIT_EXPENSE'
       });
     },
 
@@ -907,8 +968,8 @@ export default {
     }) {
       const participantSummary = this.formatParticipantSummary(participants);
 
-      const subject = `Split expense confirmed: ${expenseDescription}💳`;
-      const emailBody = `Hello ${payerName},\n\nYour split expense for ${expenseDescription} on ${expenseDateFormatted} has been processed.\nTotal amount: $${totalAmount}\nAssigned share per participant: $${shareAmount}\n\nParticipants (${recipientCount}):\n${participantSummary}\n\nYou can review this split anytime from your account🏦`;
+      const subject = `Split expense confirmed: ${expenseDescription}`;
+      const emailBody = `Hello ${payerName},\n\nYour split expense for ${expenseDescription} on ${expenseDateFormatted} has been processed.\nTotal amount: $${totalAmount}\nAssigned share per participant: $${shareAmount}\n\nParticipants (${recipientCount}):\n${participantSummary}\n\nYou can review this split anytime from your account`;
       const smsBody = `Hello ${payerName},\n\nYour split expense for ${expenseDescription} was successfully created.\nDate: ${expenseDateFormatted}\nTotal: $${totalAmount}\nParticipants: ${recipientCount}\nReview in your account.`;
 
       return { subject, emailBody, smsBody };
@@ -946,6 +1007,7 @@ export default {
     async openTransferPrompt() {
       this.transferRecipient = '';
       this.transferAmount = '';
+      this.transferMsg = '';
       this.transferError = null;
       this.showTransferModal = true;
     },
@@ -954,8 +1016,54 @@ export default {
       this.showTransferModal = false;
       this.transferRecipient = '';
       this.transferAmount = '';
+      this.transferMsg = '';
       this.transferError = null;
       this.isTransferring = false;
+    },
+
+    // Show a confirm dialog using the ConfirmModal component and return a Promise<boolean>
+    showConfirmDialogAsync(message) {
+      return new Promise((resolve) => {
+        this.confirmDialogMessage = message;
+        this.showConfirmDialog = true;
+        this._confirmDialogResolve = resolve;
+      });
+    },
+
+    confirmDialogConfirm() {
+      if (this._confirmDialogResolve) this._confirmDialogResolve(true);
+      this._confirmDialogResolve = null;
+      this.showConfirmDialog = false;
+      this.confirmDialogMessage = '';
+    },
+
+    confirmDialogCancel() {
+      if (this._confirmDialogResolve) this._confirmDialogResolve(false);
+      this._confirmDialogResolve = null;
+      this.showConfirmDialog = false;
+      this.confirmDialogMessage = '';
+    },
+
+    showSuccess(message, duration = 3500) {
+      this.showSuccessAlertMessage = message || 'Success';
+      this.showSuccessAlert = true;
+      if (this.successToastTimer) clearTimeout(this.successToastTimer);
+      this.successToastTimer = setTimeout(() => {
+        this.showSuccessAlert = false;
+        this.showSuccessAlertMessage = '';
+        this.successToastTimer = null;
+      }, duration);
+    },
+
+    showError(message, duration = 5000) {
+      this.showErrorAlertMessage = message || 'An error occurred';
+      this.showErrorAlert = true;
+      if (this.errorToastTimer) clearTimeout(this.errorToastTimer);
+      this.errorToastTimer = setTimeout(() => {
+        this.showErrorAlert = false;
+        this.showErrorAlertMessage = '';
+        this.errorToastTimer = null;
+      }, duration);
     },
 
     async confirmTransfer() {
@@ -974,9 +1082,14 @@ export default {
         this.transferError = 'Please enter a valid amount greater than 0.';
         return;
       }
+      let proceed = false;
 
-
-      const proceed = window.confirm(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName}?`);
+      if (this.transferMsg == "") {
+        proceed = await this.showConfirmDialogAsync(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName}?`);
+        this.transferMsg = "Others";
+      } else {
+        proceed = await this.showConfirmDialogAsync(`Confirm transfer of $${amountVal.toFixed(2)} to ${recipient.FullName} for ${this.transferMsg}?`);
+      }
 
       if (!proceed) return;
 
@@ -986,7 +1099,8 @@ export default {
           accountIdFrom: this.currentAccNumber,
           consumerIdFrom: this.accountDetails.CustomerId,
           amount: amountVal,
-          phone: Number(this.transferRecipient)
+          phone: Number(this.transferRecipient),
+          narrative: this.transferMsg
         });
 
         // Send notifications to both sender and recipient
@@ -999,8 +1113,8 @@ export default {
         const recipientPhone = recipient.PhoneNumber || recipient.phoneNumber || Number(this.transferRecipient);
 
         if (recipientEmail || recipientPhone) {
-          const recipientSubject = `Fund Transfer Received: $${amountFormatted} 💰`;
-          const recipientEmailBody = `Hello ${recipientName},\n\nYou have received a fund transfer of $${amountFormatted} from ${senderName}.\n\nTransaction completed successfully🏦.\n\nThank you!`;
+          const recipientSubject = `Fund Transfer Received: $${amountFormatted}`;
+          const recipientEmailBody = `Hello ${recipientName},\n\nYou have received a fund transfer of $${amountFormatted} from ${senderName}.\n\nTransaction completed successfully.\n\nThank you!`;
           const recipientSmsBody = `Hello ${recipientName},\n\nYou received $${amountFormatted} from ${senderName}.\nTransaction completed successfully.`;
 
           try {
@@ -1023,8 +1137,8 @@ export default {
         const senderPhone = this.accountDetails?.PhoneNumber || this.accountDetails?.phoneNumber;
 
         if (senderEmail || senderPhone) {
-          const senderSubject = `Fund Transfer Sent: $${amountFormatted} 💸`;
-          const senderEmailBody = `Hello ${senderName},\n\nYou have successfully transferred $${amountFormatted} to ${recipientName}.\n\nTransaction completed successfully.\n\nThank you for using our service! 🏦`;
+          const senderSubject = `Fund Transfer Sent: $${amountFormatted}`;
+          const senderEmailBody = `Hello ${senderName},\n\nYou have successfully transferred $${amountFormatted} to ${recipientName}.\n\nTransaction completed successfully.\n\nThank you for using our service!`;
           const senderSmsBody = `Hello ${senderName},\n\nYou sent $${amountFormatted} to ${recipientName}.\nTransaction completed successfully.`;
 
           try {
@@ -1042,6 +1156,13 @@ export default {
         }
 
         this.closeTransferModal();
+
+        // Refresh transactions so the new transfer shows up
+        try {
+          await this.refreshTransactions();
+        } catch (err) {
+          console.error('Failed to refresh transactions after transfer:', err);
+        }
       } catch (err) {
         console.error('Transfer failed:', err);
         this.transferError = err?.message || 'Transfer failed. See console for details.';
@@ -1057,6 +1178,20 @@ export default {
       this.totalSpending = summary.totalSpending || "$0.00";
     },
 
+    // Refresh transaction history and insights
+    async refreshTransactions() {
+      try {
+        this.currentPage = 1;
+        await this.fetchTransactionData(this.currentAccNumber, this.startDate, this.endDate);
+        // refresh insights and monthly data
+        await this.fetchAllTransactionsForInsights();
+        await this.fetchMonthlyTransaction();
+      } catch (err) {
+        console.error('Error refreshing transactions:', err);
+        throw err;
+      }
+    },
+
     selectSplitExpensesTab() {
       this.currentTab = 'splitExpenses';
       this.fetchSplitExpenses();
@@ -1067,54 +1202,65 @@ export default {
 
       this.loadingSplitExpenses = true;
       try {
-        // Get CustomerId from account details, fallback to currentAccNumber
         let customerId = this.accountDetails?.CustomerId ||
           this.accountDetails?.Id ||
           this.currentAccNumber;
 
-        // Standardize customer ID to include leading zeros (10 digits)
-        customerId = addLeadingZeros(customerId, 10);
-
-        console.log('Fetching split expenses for CustomerId:', customerId);
-        console.log('Account Details:', this.accountDetails);
-        console.log('Original CustomerId value:', this.accountDetails?.CustomerId || this.accountDetails?.Id || this.currentAccNumber);
-
         const response = await getMySplitExpense(customerId);
 
-        console.log('API Response:', response);
-        console.log('SplitExpenses array:', response?.SplitExpenses);
-
-        // Map the API response structure to frontend structure
         if (response && response.SplitExpenses && Array.isArray(response.SplitExpenses) && response.SplitExpenses.length > 0) {
-          // Transform the response to match frontend expectations
-          this.splitExpenses = response.SplitExpenses.map(expense => {
-            // Try to find the original transaction to get its narrative/description
+          const expenseMap = new Map();
+          response.SplitExpenses.forEach(expense => {
+            const expenseId = expense.ExpenseId;
+            if (expenseId && !expenseMap.has(expenseId)) {
+              expenseMap.set(expenseId, expense);
+            } else if (expenseId && expenseMap.has(expenseId)) {
+              const existingExpense = expenseMap.get(expenseId);
+              if (expense.SplitWith && Array.isArray(expense.SplitWith)) {
+                const existingMemberIds = new Set((existingExpense.SplitWith || []).map(s => s.MemberId));
+                expense.SplitWith.forEach(split => {
+                  if (!existingMemberIds.has(split.MemberId)) {
+                    if (!existingExpense.SplitWith) {
+                      existingExpense.SplitWith = [];
+                    }
+                    existingExpense.SplitWith.push(split);
+                    existingMemberIds.add(split.MemberId);
+                  }
+                });
+              }
+            }
+          });
+
+          const uniqueExpenses = Array.from(expenseMap.values());
+
+          this.splitExpenses = uniqueExpenses.map(expense => {
             let transactionDescription = expense.Description;
 
-            // If Description is empty, try to find the original transaction
             if (!transactionDescription || transactionDescription.trim() === '') {
-              // Look for transaction in allTransactions or transactions array
+              if (expense.Notes) {
+                let notesMatch = expense.Notes.match(/Split expense for transaction:\s*(.+)/i);
+                if (!notesMatch) {
+                  notesMatch = expense.Notes.match(/Split expense:\s*(.+)/i);
+                }
+                if (!notesMatch && expense.Notes.trim()) {
+                  transactionDescription = expense.Notes.trim();
+                } else if (notesMatch && notesMatch[1]) {
+                  transactionDescription = notesMatch[1].trim();
+                }
+              }
+            }
+
+            if (!transactionDescription || transactionDescription.trim() === '') {
               const bankTransactionId = expense.BankTransactionId;
               if (bankTransactionId) {
-                // Standardize BankTransactionId for comparison
-                const normalizedBankId = addLeadingZeros(bankTransactionId, 10);
-
-                // Helper function to find transaction in an array
                 const findTransactionInArray = (txArray) => {
                   return txArray.find(tx => {
-                    // Try multiple field names and formats
                     const txId = tx.transactionId || tx.id || tx.TransactionId || tx.transactionID;
                     if (!txId) return false;
-
-                    // Normalize both IDs for comparison
-                    const normalizedTxId = addLeadingZeros(txId, 10);
-                    return normalizedTxId === normalizedBankId ||
-                      txId.toString() === bankTransactionId.toString() ||
-                      normalizedTxId === bankTransactionId.toString();
+                    return txId.toString() === bankTransactionId.toString();
                   });
                 };
 
-                // Search in allTransactions first (has all transactions), then in current transactions
                 let originalTransaction = findTransactionInArray(this.allTransactions);
                 if (!originalTransaction) {
                   originalTransaction = findTransactionInArray(this.transactions);
@@ -1122,100 +1268,57 @@ export default {
 
                 if (originalTransaction) {
                   transactionDescription = originalTransaction.narrative || originalTransaction.description || originalTransaction.Description || '';
-                  console.log('Found original transaction:', {
-                    bankTransactionId,
-                    normalizedBankId,
-                    narrative: transactionDescription,
-                    transactionId: originalTransaction.transactionId || originalTransaction.id || originalTransaction.TransactionId
-                  });
-                } else {
-                  console.log('Could not find original transaction for BankTransactionId:', bankTransactionId, 'normalized:', normalizedBankId);
-                  if (this.allTransactions.length > 0) {
-                    console.log('Sample transactions:', this.allTransactions.slice(0, 3).map(tx => ({
-                      id: tx.transactionId || tx.id || tx.TransactionId,
-                      narrative: tx.narrative
-                    })));
-                  }
-                }
-              }
-
-              // If still empty, try to extract from Notes
-              if (!transactionDescription || transactionDescription.trim() === '') {
-                if (expense.Notes) {
-                  const notesMatch = expense.Notes.match(/Split expense for transaction:\s*(.+)/i);
-                  if (notesMatch && notesMatch[1]) {
-                    transactionDescription = notesMatch[1].trim();
-                  }
                 }
               }
             }
 
+            const splitDetails = (expense.SplitWith || []).map(split => {
+              const percentage = expense.OriginalAmount > 0
+                ? (split.SplitAmount / expense.OriginalAmount) * 100
+                : 0;
+
+              return {
+                MemberId: split.MemberId,
+                MemberName: split.MemberName || null,
+                SplitAmount: split.SplitAmount,
+                SplitPercentage: percentage,
+                IsPaid: split.IsPaid,
+                PaymentStatus: split.IsPaid ? 'Paid' : 'Pending',
+                SplitType: 'Equal'
+              };
+            });
+
             return {
-              // Map basic expense fields
               ExpenseId: expense.ExpenseId,
-              // Use the found transaction description, or fallback
               Description: transactionDescription || 'Split Expense',
-              TotalAmount: expense.OriginalAmount, // Map OriginalAmount to TotalAmount
+              TotalAmount: expense.OriginalAmount,
               ExpenseDate: expense.ExpenseDate,
               BankTransactionId: expense.BankTransactionId,
               CategoryId: expense.CategoryId,
-              TransactionId: expense.BankTransactionId, // Use BankTransactionId as TransactionId
-              // Store original Notes for reference
+              TransactionId: expense.BankTransactionId,
               Notes: expense.Notes || '',
-              // Map SplitWith to SplitDetails with additional fields
-              SplitDetails: (expense.SplitWith || []).map(split => {
-                // Calculate percentage: (SplitAmount / OriginalAmount) * 100
-                const percentage = expense.OriginalAmount > 0
-                  ? (split.SplitAmount / expense.OriginalAmount) * 100
-                  : 0;
-
-                return {
-                  MemberId: split.MemberId,
-                  MemberName: split.MemberName || null, // Use MemberName from API response
-                  SplitAmount: split.SplitAmount,
-                  SplitPercentage: percentage,
-                  IsPaid: split.IsPaid,
-                  PaymentStatus: split.IsPaid ? 'Paid' : 'Pending', // Convert boolean to string
-                  SplitType: 'Equal' // Default, adjust if API provides this
-                };
-              }),
-              // Calculate derived fields
+              SplitDetails: splitDetails,
               TotalPeople: expense.SplitWith ? expense.SplitWith.length : 0,
               SplitAmount: expense.SplitWith && expense.SplitWith.length > 0
                 ? expense.OriginalAmount / expense.SplitWith.length
                 : expense.OriginalAmount,
-              PaidByMemberId: expense.PaidByMemberId || expense.PaidByCustomerId || null, 
-              PaidByMemberName: expense.PaidByName || null, // Use PaidByName from API response
+              PaidByMemberId: expense.PaidByMemberId || expense.PaidByCustomerId || null,
+              PaidByMemberName: expense.PaidByName || null,
               CreatedDate: expense.ExpenseDate,
               ModifiedDate: expense.ExpenseDate,
               IsActive: true,
-              PaymentStatus: 'Pending',
-              CreatedByCustomerId: expense.CreatedByCustomerId || expense.CreatedBy || null, // Preserve creator ID from API if available
+              PaymentStatus: expense.PaymentStatus || 'Pending',
+              CreatedByCustomerId: expense.CreatedByCustomerId || expense.CreatedBy || null,
               ModifiedByCustomerId: null,
               SplitType: 'Equal'
             };
           });
-
-          console.log('Mapped split expenses:', this.splitExpenses);
         } else {
-          console.warn('No split expenses found or empty array. Response:', response);
           this.splitExpenses = [];
-
-          // Show user-friendly message if response is successful but empty
-          if (response && response.Success && (!response.SplitExpenses || response.SplitExpenses.length === 0)) {
-            console.log('API returned success but no expenses found');
-          }
         }
       } catch (error) {
         console.error('Error fetching split expenses:', error);
-        console.error('Error details:', {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status
-        });
         this.splitExpenses = [];
-        // Optionally show error message to user
-        // alert('Failed to load split expenses. Please try again.');
       } finally {
         this.loadingSplitExpenses = false;
       }
@@ -1243,12 +1346,19 @@ export default {
 
     // Fetch transactions by date filter
     fetchTransactionData(currentAccNumber, startDate, endDate) {
+      this.transactionsLoading = true;
       return fetchTransactionData(currentAccNumber, startDate, endDate)
         .then((data) => {
           // 2. Set transactions
           this.transactions = data.map(tx => enrichTransaction(tx, currentAccNumber));
-
-
+        })
+        .catch((err) => {
+          console.error('Error fetching transactions:', err);
+          this.transactions = [];
+          throw err;
+        })
+        .finally(() => {
+          this.transactionsLoading = false;
         });
     },
 
@@ -1295,6 +1405,7 @@ export default {
       lastMonthDate.setMonth(nowDate.getMonth() - 1); // set to one month earlier
       const lastMonth = lastMonthDate.toLocaleDateString('en-CA');
 
+      this.transactionsLoading = true;
       return fetchTransactionData(this.currentAccNumber, lastMonth, now)
         .then((data) => {
           // Enrich each transaction with account number context
@@ -1309,6 +1420,14 @@ export default {
           this.expenses = "$" + this.transactions
             .reduce((sum, tx) => sum + calculateExpenses(tx, this.currentAccNumber), 0)
             .toFixed(2);
+        })
+        .catch((err) => {
+          console.error('Error fetching monthly transactions:', err);
+          this.transactions = [];
+          throw err;
+        })
+        .finally(() => {
+          this.transactionsLoading = false;
         });
 
     },
