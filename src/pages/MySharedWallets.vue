@@ -297,8 +297,8 @@ export default {
           this.wallets = walletsWithOwnership;
         }
       } catch (err) {
-        console.error("Failed to load wallet list:", err);
-        this.error = "Unable to load your wallets right now. Please try again later.";
+        // console.error("Failed to load wallet list:", err);
+        // this.error = "You do not have any shared.";
       } finally {
         this.loading = false;
       }
