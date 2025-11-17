@@ -6,9 +6,9 @@
       <!-- Logo -->
       <div class="flex justify-center mb-6">
         <div
-          class="w-12 h-12 bg-gradient-to-br from-navy-600 to-navy-800 rounded-lg flex items-center justify-center"
+          class="w-40 h-12 bg-gradient-to-br from-navy-600 to-navy-800 rounded-lg flex items-center justify-center"
         >
-          <span class="text-white font-bold text-lg">MyB</span>
+          <span class="text-white font-bold text-lg">LoopFund</span>
         </div>
       </div>
 

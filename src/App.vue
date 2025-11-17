@@ -14,7 +14,7 @@
                   </path>
                 </svg>
               </div>
-              <span class="text-xl font-bold text-navy-900">MyBank</span>
+              <span class="text-xl font-bold text-navy-900">LoopFund</span>
             </div>
             <nav class="hidden md:flex gap-6">
               <router-link 
